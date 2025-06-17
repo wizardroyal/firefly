@@ -16,16 +16,24 @@
     <script>
         let gameState = 'teamSelect'; // teamSelect, intro, login, game, abandoned, leaderboard, saveScore, highScore
         let team = null; // 'pink' or 'blue'
-        let jar, droplets = [], bees = [];
-        let score = 0, lives = 3, gameOver = false;
-        let lastDropletSpawn = 0, lastBeeSpawn = 0, nextBeeSpawnTime = 0;
+        let jar = null;
+        let droplets = [];
+        let bees = [];
+        let score = 0;
+        let lives = 3;
+        let gameOver = false;
+        let lastDropletSpawn = 0;
+        let lastBeeSpawn = 0;
+        let nextBeeSpawnTime = 0;
         let fastBeeIndex = -1;
         let beeImg, jarImg, dropletImg;
         let pinkBeeImg, pinkJarImg, blueBeeImg, blueJarImg;
         let imagesLoaded = false;
         let walletAddress = null;
         let username = null;
-        let provider, signer, contract;
+        let provider = null;
+        let signer = null;
+        let contract = null;
         let leaderboard = [];
         let highScores = [];
         let saveScoreChoice = null;
@@ -135,12 +143,12 @@
         async function setup() {
             try {
                 createCanvas(800, 600);
-                // Check image loading
+                // Check image loading safely
                 imagesLoaded = pinkBeeImg && pinkBeeImg.width > 0 && 
                               pinkJarImg && pinkJarImg.width > 0 && 
                               blueBeeImg && blueBeeImg.width > 0 && 
                               blueJarImg && blueJarImg.width > 0 && 
-                              dropletImg && dropletImg.width > 0;
+                              dropletImg && dropletImg.width > 0; // Fixed: use width instead of height
                 console.log('Setup complete, images loaded:', imagesLoaded);
                 if (typeof window.ethereum !== 'undefined') {
                     try {
@@ -164,6 +172,14 @@
                 console.log('Initial game state:', gameState);
             } catch (error) {
                 console.error('Setup failed:', error);
+                // Fallback to basic canvas setup
+                createCanvas(800, 600);
+                background(255, 0, 0);
+                textFont('sans-serif');
+                textSize(20);
+                fill(255);
+                textAlign(CENTER);
+                text('Setup error. Check console.', 400, 300);
             }
         }
 
@@ -280,7 +296,7 @@
                     leaderboard.sort((a, b) => b.score - a.score);
                     for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
                         fill(leaderboard[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
-                        let id = leaderboard[i].address ? leaderboard[i].address.slice(0, 12) + '...' : leaderboard[i].username.slice(0, 12);
+                        let id = leaderboard[i].address ? leaderboard[i].address.slice(0, 12) + '...' : (leaderboard[i].username || '').slice(0, 12);
                         text(`${i + 1}. ${id}: ${leaderboard[i].score}`, 170, 140 + i * 30);
                     }
                     drawButton(restartButton);
@@ -299,7 +315,7 @@
                     let startIdx = floor(scrollOffset / 30);
                     for (let i = startIdx; i < Math.min(startIdx + 12, highScores.length); i++) {
                         fill(team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
-                        let id = highScores[i].address ? highScores[i].address.slice(0, 12) + '...' : highScores[i].username.slice(0, 12);
+                        let id = highScores[i].address ? highScores[i].address.slice(0, 12) + '...' : (highScores[i].username || '').slice(0, 12);
                         text(`${i + 1}. ${id}: ${highScores[i].score}`, 170, 140 + (i - startIdx) * 30);
                     }
                     drawButton(restartButton);
@@ -440,6 +456,7 @@
                     }
                     if (saveScoreChoice !== null && isMouseOverButton(restartButton)) {
                         gameState = 'game';
+                        jar = { x: width / 2, y: height / 2, w: 50, h: 50 };
                         score = 0;
                         lives = 3;
                         gameOver = false;
@@ -462,6 +479,7 @@
                         fetchHighScores();
                     } else if ((gameState === 'leaderboard' || gameState === 'highScore') && isMouseOverButton(restartButton)) {
                         gameState = 'game';
+                        jar = { x: width / 2, y: height / 2, w: 50, h: 50 };
                         score = 0;
                         lives = 3;
                         gameOver = false;
@@ -567,6 +585,7 @@
 
         function isMouseOverButton(btn) {
             try {
+                console.log('Checking button:', btn.text, 'Mouse:', mouseX, mouseY, 'Button:', btn.x, btn.y, btn.w, btn.h);
                 return mouseX > btn.x && mouseX < btn.x + btn.w && mouseY > btn.y && mouseY < btn.y + btn.h;
             } catch (error) {
                 console.error('isMouseOverButton error:', error);
@@ -580,6 +599,7 @@
                 let vx = random(-1, 1);
                 let vy = random(0.5, 2);
                 droplets.push({ x, y: 0, vx, vy, w: 20, h: 20 });
+                console.log('Spawned droplet at:', x, y);
             } catch (error) {
                 console.error('Spawn droplet error:', error);
             }
@@ -601,6 +621,7 @@
                 if (bees.length === 5 && fastBeeIndex === -1) {
                     fastBeeIndex = bees.length - 1;
                 }
+                console.log('Spawned bee at:', x, y);
             } catch (error) {
                 console.error('Spawn bee error:', error);
             }
@@ -615,6 +636,7 @@
                 } else if (fastBeeIndex > removedIndex) {
                     fastBeeIndex--;
                 }
+                console.log('Updated fast bee index:', fastBeeIndex);
             } catch (error) {
                 console.error('Update fast bee index error:', error);
             }
@@ -622,6 +644,7 @@
 
         function collides(a, b) {
             try {
+                if (!a || !b) return false;
                 return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
             } catch (error) {
                 console.error('Collision check error:', error);

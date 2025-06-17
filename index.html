@@ -12,32 +12,41 @@
 </head>
 <body>
     <script>
-        let jar, fireflies = [], moths = [];
+        let net, fireflies = [], moths = [];
         let score = 0, lives = 3, gameOver = false;
-        let lastFireflySpawn = 0, lastMothSpawn = 0;
+        let lastFireflySpawn = 0, lastMothSpawn = 0, nextMothSpawnTime = 0;
+        let fastMothIndex = -1; // Tracks which moth is fast when 3 are present
 
         function setup() {
             createCanvas(800, 600);
-            jar = { x: width / 2, y: height - 60, w: 50, h: 50 };
+            net = { x: width / 2, y: height / 2, w: 50, h: 50 }; // Start net in center
             spawnFirefly();
+            spawnMoth(); // Start with one moth
+            nextMothSpawnTime = millis() + 10000; // Next moth in 10 seconds
         }
 
         function draw() {
-            console.log('Fireflies:', fireflies.length, 'Moths:', moths.length, 'Jar X:', jar.x);
+            console.log('Fireflies:', fireflies.length, 'Moths:', moths.length, 'Net X:', net.x, 'Net Y:', net.y, 'Fast Moth:', fastMothIndex);
             background(0, 0, 50); // Dark blue starry night
 
-            // Update jar position
-            jar.x = constrain(mouseX - jar.w / 2, 0, width - jar.w);
+            // Update net position if mouse is pressed (dragging)
+            if (mouseIsPressed && !gameOver) {
+                net.x = constrain(mouseX - net.w / 2, 0, width - net.w);
+                net.y = constrain(mouseY - net.h / 2, 0, height - net.h);
+            }
 
             if (!gameOver) {
-                // Spawn fireflies and moths
+                // Spawn fireflies
                 if (millis() - lastFireflySpawn > 2000) {
                     spawnFirefly();
                     lastFireflySpawn = millis();
                 }
-                if (millis() - lastMothSpawn > 3000) {
+
+                // Spawn moths (up to 3)
+                if (moths.length < 3 && millis() > nextMothSpawnTime) {
                     spawnMoth();
                     lastMothSpawn = millis();
+                    nextMothSpawnTime = millis() + (moths.length < 3 ? 10000 : 3000); // 10s for new moth, 3s for replacement
                 }
 
                 // Update and draw fireflies
@@ -48,8 +57,8 @@
                     fill(0, 255, 0); // Green for fireflies
                     ellipse(f.x + 10, f.y + 10, 20, 20);
 
-                    // Check collision with jar
-                    if (collides(jar, f)) {
+                    // Check collision with net
+                    if (collides(net, f)) {
                         score += 10;
                         fireflies.splice(i, 1);
                         continue;
@@ -61,25 +70,70 @@
                 // Update and draw moths
                 for (let i = moths.length - 1; i >= 0; i--) {
                     let m = moths[i];
+                    // Update speed phase
+                    if (moths.length === 3) {
+                        // Only one moth is fast
+                        if (i === fastMothIndex) {
+                            m.phase = 'dash';
+                        } else {
+                            m.phase = 'slow';
+                        }
+                    } else {
+                        // Cycle phases normally
+                        if (millis() - m.phaseStart > m.phaseDuration) {
+                            m.phase = m.phase === 'slow' ? 'dash' : 'slow';
+                            m.phaseStart = millis();
+                            m.phaseDuration = m.phase === 'slow' ? 3000 : 1000; // 3s slow, 1s dash
+                        }
+                    }
+
+                    // Set velocity based on phase
+                    if (m.phase === 'slow') {
+                        let speed = random(1, 2);
+                        let angle = random(TWO_PI);
+                        m.vx = speed * cos(angle);
+                        m.vy = speed * sin(angle);
+                    } else {
+                        let speed = random(5, 7);
+                        let angle = random(TWO_PI);
+                        m.vx = speed * cos(angle);
+                        m.vy = speed * sin(angle);
+                    }
+
                     m.x += m.vx;
+                    m.y += m.vy;
+
                     fill(128); // Gray for moths
                     rect(m.x, m.y, 30, 30);
 
-                    // Check collision with jar
-                    if (collides(jar, m)) {
+                    // Check collision with net
+                    if (collides(net, m)) {
                         lives -= 1;
                         moths.splice(i, 1);
                         if (lives <= 0) gameOver = true;
+                        updateFastMothIndex(i);
                         continue;
                     }
                     // Remove if off-screen
-                    if (m.x > width || m.x < -30) moths.splice(i, 1);
+                    if (m.x > width || m.x < -30 || m.y > height || m.y < -30) {
+                        moths.splice(i, 1);
+                        updateFastMothIndex(i);
+                        continue;
+                    }
+                }
+
+                // Update fast moth when three moths are present
+                if (moths.length === 3 && fastMothIndex >= 0) {
+                    let fastMoth = moths[fastMothIndex];
+                    if (fastMoth.phase === 'slow' && millis() - fastMoth.phaseStart > fastMoth.phaseDuration) {
+                        updateFastMothIndex(fastMothIndex); // Reassign fast moth
+                    }
                 }
             }
 
-            // Draw jar
-            fill(0, 0, 255); // Blue for jar
-            rect(jar.x, jar.y, jar.w, jar.h);
+            // Draw net
+            fill(0, 0, 255); // Blue for net
+            rect(net.x, net.y, net.w, net.h);
 
             // Draw HUD
             textSize(20);
@@ -107,10 +161,29 @@
         }
 
         function spawnMoth() {
-            let side = random() > 0.5 ? -30 : width;
-            let vx = side < 0 ? random(2, 4) : random(-4, -2);
-            let y = random(50, height - 100);
-            moths.push({ x: side, y, vx, w: 30, h: 30 });
+            let x = random(0, width);
+            let y = random(0, height);
+            let phase = 'slow';
+            let speed = random(1, 2);
+            let angle = random(TWO_PI);
+            let vx = speed * cos(angle);
+            let vy = speed * sin(angle);
+            let phaseStart = millis();
+            let phaseDuration = 3000; // Start with 3s slow
+            moths.push({ x, y, vx, vy, w: 30, h: 30, phase, phaseStart, phaseDuration });
+            if (moths.length === 3 && fastMothIndex === -1) {
+                fastMothIndex = moths.length - 1; // New moth is fast
+            }
+        }
+
+        function updateFastMothIndex(removedIndex) {
+            if (moths.length < 3) {
+                fastMothIndex = -1; // Reset if fewer than 3 moths
+            } else if (fastMothIndex === removedIndex) {
+                fastMothIndex = floor(random(moths.length)); // Randomly pick a new fast moth
+            } else if (fastMothIndex > removedIndex) {
+                fastMothIndex--; // Adjust index if higher moths shift down
+            }
         }
 
         function collides(a, b) {
@@ -124,9 +197,12 @@
                 gameOver = false;
                 fireflies = [];
                 moths = [];
+                fastMothIndex = -1;
                 spawnFirefly();
+                spawnMoth();
                 lastFireflySpawn = millis();
                 lastMothSpawn = millis();
+                nextMothSpawnTime = millis() + 10000;
             }
         }
     </script>

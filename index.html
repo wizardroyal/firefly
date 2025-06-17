@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Honey Catch</title>
+    <title>Saving Succinct Summer</title>
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; }
         canvas { display: block; }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Lobster&family=Chewy&family=Bubblegum+Sans&family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Bubblegum+Sans&family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
 </head>
@@ -54,15 +54,15 @@
         ];
 
         // Buttons
-        let walletButton = { x: 300, y: 350, w: 200, h: 50, color: [100, 100, 255], text: 'Sign in with Wallet' };
-        let usernameButton = { x: 300, y: 420, w: 200, h: 50, color: [255, 100, 100], text: 'Enter Username' };
-        let startGameButton = { x: 300, y: 250, w: 200, h: 50, color: [128, 128, 128], text: 'Start Game' };
+        let walletButton = { x: 300, y: 350, w: 200, h: 50, color: [100, 150, 255], text: 'Sign in with Wallet' };
+        let usernameButton = { x: 300, y: 420, w: 200, h: 50, color: [255, 100, 150], text: 'Enter Username' };
+        let startGameButton = { x: 300, y: 250, w: 100, h: 50, color: [128, 128, 128], text: 'Start Game' };
         let yesButton = { x: 300, y: 450, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
         let noButton = { x: 400, y: 450, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
-        let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [199, 21, 133], text: 'PINK' };
+        let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [199, 21, 133], text: 'PINK' }; // Deep pink #C71585
         let blueButton = { x: 400, y: 400, w: 100, h: 50, color: [0, 0, 255], text: 'BLUE' };
-        let leaderboardButton = { x: 620, y: 10, w: 80, h: 30, color: [128, 128, 128], text: 'Leaderboard' };
-        let highScoreButton = { x: 710, y: 10, w: 80, h: 30, color: [128, 128, 128], text: 'High Score' };
+        let leaderboardButton = { x: 620, y: 10, w: 80, h: 30, color: [0, 128, 0], text: 'Leaderboard' }; // Green
+        let highScoreButton = { x: 710, y: 10, w: 80, h: 30, color: [255, 215, 0], text: 'High Scores' }; // Golden #FFD700
         let saveYesButton = { x: 300, y: 400, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
         let saveNoButton = { x: 400, y: 400, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
         let restartButton = { x: 350, y: 480, w: 100, h: 50, color: [0, 128, 0], text: 'Restart' };
@@ -89,7 +89,7 @@
                             {"internalType": "uint256", "name": "score", "type": "uint256"},
                             {"internalType": "string", "name": "team", "type": "string"}
                         ],
-                        "internalType": "struct HoneyCatchLeaderboard.Score[]",
+                        "internalType": "struct Score[]",
                         "name": "",
                         "type": "tuple[]"
                     }
@@ -107,7 +107,7 @@
                             {"internalType": "uint256", "name": "score", "type": "uint256"},
                             {"internalType": "string", "name": "team", "type": "string"}
                         ],
-                        "internalType": "struct HoneyCatchLeaderboard.Score[]",
+                        "internalType": "struct Score[]",
                         "name": "",
                         "type": "tuple[]"
                     }
@@ -120,25 +120,30 @@
 
         function preload() {
             console.log('Preloading images...');
-            pinkBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/bfly.png');
-            pinkJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pink.png');
-            blueBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pfly.png');
-            blueJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/blue.png');
-            dropletImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/drop.png');
+            pinkBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/bfly.png');
+            pinkJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/pink.png');
+            blueBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/pfly.png');
+            blueJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/blue.png');
+            dropletImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/drop.png');
         }
 
         async function setup() {
             createCanvas(800, 600);
-            imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0 && dropletImg.width > 0;
-            console.log('Images loaded:', imagesLoaded);
+            imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0 && dropletImg.height > 0;
+            console.log('Setup complete, images loaded:', imagesLoaded);
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     provider = new ethers.providers.Web3Provider(window.ethereum);
-                    contract = new ethers.Contract(contractAddress, contractABI, provider);
-                    console.log('Web3 provider initialized');
+                    if (contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
+                        contract = new ethers.Contract(contractAddress, contractABI, provider);
+                        console.log('Web3 provider initialized with contract:', contractAddress);
+                    } else {
+                        console.warn('No valid contract address, using local storage');
+                        contract = null;
+                    }
                 } catch (error) {
                     console.error('Web3 provider setup failed:', error);
-                    contract = null; // Fallback to local storage
+                    contract = null;
                 }
             } else {
                 console.warn('No Ethereum provider detected');
@@ -150,7 +155,7 @@
 
         function draw() {
             if (gameState === 'teamSelect') {
-                background(255, 240, 245); // Whitish pink
+                background(0, 255, 245); // Whitish pink
                 // Draw curved header
                 textFont('Chewy');
                 textSize(48);
@@ -180,7 +185,7 @@
                 drawButton(pinkButton);
                 drawButton(blueButton);
             } else if (gameState === 'intro') {
-                background(255, 240, 245);
+                background(0, 255, 245);
                 textFont('Bubblegum Sans');
                 textSize(24);
                 textAlign(CENTER);
@@ -208,7 +213,7 @@
                     drawButton(noButton);
                 }
             } else if (gameState === 'login') {
-                background(255, 240, 245);
+                background(0, 255, 245);
                 if (walletAddress || username) {
                     drawButton(startGameButton);
                 }
@@ -241,44 +246,46 @@
                 text('Save to Leaderboard?', width / 2, 350);
                 drawButton(saveYesButton);
                 drawButton(saveNoButton);
+                drawButton(leaderboardButton);
+                drawButton(highScoreButton);
                 if (saveScoreChoice !== null) {
                     drawButton(restartButton);
                 }
             } else if (gameState === 'leaderboard') {
-                background(255, 240, 245);
+                background(245, 230, 199); // Beige
                 fill(0, 128, 0); // Green
-                rect(180, 80, 440, 360);
+                rect(150, 60, 500, 400); // Expanded box
                 textFont('Comic Neue');
                 textSize(32);
                 fill(51, 51, 51);
                 textAlign(CENTER);
-                text('Leaderboard', width / 2, 120);
+                text('Leaderboard', width / 2, 100);
                 textSize(20);
                 textAlign(LEFT);
                 leaderboard.sort((a, b) => b.score - a.score);
                 for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
                     fill(leaderboard[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
                     let id = leaderboard[i].address ? leaderboard[i].address.slice(0, 12) + '...' : leaderboard[i].username.slice(0, 12);
-                    text(`${i + 1}. ${id}: ${leaderboard[i].score}`, 200, 160 + i * 30);
+                    text(`${i + 1}. ${id}: ${leaderboard[i].score}`, 170, 140 + i * 30);
                 }
                 drawButton(restartButton);
             } else if (gameState === 'highScore') {
-                background(255, 240, 245);
+                background(245, 230, 199); // Beige
                 fill(128, 128, 128); // Gray
-                rect(180, 80, 440, 360);
+                rect(150, 60, 500, 400); // Expanded box
                 textFont('Comic Neue');
                 textSize(32);
                 fill(51, 51, 51);
                 textAlign(CENTER);
-                text('Your High Scores', width / 2, 120);
+                text('Your High Scores', width / 2, 100);
                 textSize(20);
                 textAlign(LEFT);
                 highScores.sort((a, b) => b.score - a.score);
                 let startIdx = floor(scrollOffset / 30);
                 for (let i = startIdx; i < Math.min(startIdx + 12, highScores.length); i++) {
-                    fill(highScores[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
+                    fill(team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
                     let id = highScores[i].address ? highScores[i].address.slice(0, 12) + '...' : highScores[i].username.slice(0, 12);
-                    text(`${i + 1}. ${id}: ${highScores[i].score}`, 200, 160 + (i - startIdx) * 30);
+                    text(`${i + 1}. ${id}: ${highScores[i].score}`, 170, 140 + (i - startIdx) * 30);
                 }
                 drawButton(restartButton);
             }
@@ -500,7 +507,6 @@
                             fetchHighScores();
                         } catch (error) {
                             console.error('Wallet connection failed:', error);
-                            // Allow game start without wallet
                             alert('Wallet connection failed. You can start the game with a username.');
                         }
                     } else {
@@ -553,8 +559,6 @@
                         highScores.push({ username, score, team });
                         saveLocalHighScores();
                         console.log('Score saved locally');
-                    } else {
-                        console.warn('No wallet or username, score not saved');
                     }
                 } else if (isMouseOverButton(saveNoButton) && saveScoreChoice === null) {
                     saveScoreChoice = false;

@@ -272,13 +272,13 @@
                 if (isMouseOverButton(pinkButton)) {
                     team = 'pink';
                     // Load pink images
-                    beeImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8DAwPCfgQEAVCMBRnBdt9IAAAAASUVORK5CYII='); // Replace with bfly.png base64
-                    jarImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNg+M/AwPCfgYGBgYGBASwRBgZc9vIAAAAASUVORK5CYII='); // Replace with pink.png base64
+                    beeImg = loadImage('/bfly.png'); // Replace with bfly.png base64
+                    jarImg = loadImage('/pink.png'); // Replace with pink.png base64
                 } else if (isMouseOverButton(blueButton)) {
                     team = 'blue';
                     // Load blue images
-                    beeImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8DAwPCfgQEAVCMBRnBdt9IAAAAASUVORK5CYII='); // Replace with pfly.png base64
-                    jarImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNg+M/AwPCfgYGBgYGBASwRBgZc9vIAAAAASUVORK5CYII='); // Replace with blue.png base64
+                    beeImg = loadImage('/pfly.png'); // Replace with pfly.png base64
+                    jarImg = loadImage('/blue'); // Replace with blue.png base64
                 } else if (team && isMouseOverButton(startButton)) {
                     gameState = 'game';
                     jar = { x: width / 2, y: height / 2, w: 50, h: 50 };

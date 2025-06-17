@@ -56,7 +56,7 @@
         // Buttons
         let walletButton = { x: 300, y: 350, w: 200, h: 50, color: [100, 150, 255], text: 'Sign in with Wallet' };
         let usernameButton = { x: 300, y: 420, w: 200, h: 50, color: [255, 100, 150], text: 'Enter Username' };
-        let startGameButton = { x: 300, y: 250, w: 100, h: 50, color: [128, 128, 128], text: 'Start Game' };
+        let startGameButton = { x: 350, y: 250, w: 100, h: 50, color: [128, 128, 128], text: 'Start Game' };
         let yesButton = { x: 300, y: 450, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
         let noButton = { x: 400, y: 450, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
         let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [199, 21, 133], text: 'PINK' }; // Deep pink #C71585
@@ -89,7 +89,7 @@
                             {"internalType": "uint256", "name": "score", "type": "uint256"},
                             {"internalType": "string", "name": "team", "type": "string"}
                         ],
-                        "internalType": "struct Score[]",
+                        "internalType": "struct SavingSuccinctSummerLeaderboard.Score[]",
                         "name": "",
                         "type": "tuple[]"
                     }
@@ -107,7 +107,7 @@
                             {"internalType": "uint256", "name": "score", "type": "uint256"},
                             {"internalType": "string", "name": "team", "type": "string"}
                         ],
-                        "internalType": "struct Score[]",
+                        "internalType": "struct SavingSuccinctSummerLeaderboard.Score[]",
                         "name": "",
                         "type": "tuple[]"
                     }
@@ -120,499 +120,381 @@
 
         function preload() {
             console.log('Preloading images...');
-            pinkBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/bfly.png');
-            pinkJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/pink.png');
-            blueBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/pfly.png');
-            blueJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/blue.png');
-            dropletImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/raw/main/drop.png');
+            try {
+                pinkBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/bfly.png');
+                pinkJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pink.png');
+                blueBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pfly.png');
+                blueJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/blue.png');
+                dropletImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/drop.png');
+            } catch (error) {
+                console.error('Image preload failed:', error);
+                imagesLoaded = false;
+            }
         }
 
         async function setup() {
-            createCanvas(800, 600);
-            imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0 && dropletImg.height > 0;
-            console.log('Setup complete, images loaded:', imagesLoaded);
-            if (typeof window.ethereum !== 'undefined') {
-                try {
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    if (contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
-                        contract = new ethers.Contract(contractAddress, contractABI, provider);
-                        console.log('Web3 provider initialized with contract:', contractAddress);
-                    } else {
-                        console.warn('No valid contract address, using local storage');
+            try {
+                createCanvas(800, 600);
+                // Check image loading
+                imagesLoaded = pinkBeeImg && pinkBeeImg.width > 0 && 
+                              pinkJarImg && pinkJarImg.width > 0 && 
+                              blueBeeImg && blueBeeImg.width > 0 && 
+                              blueJarImg && blueJarImg.width > 0 && 
+                              dropletImg && dropletImg.width > 0;
+                console.log('Setup complete, images loaded:', imagesLoaded);
+                if (typeof window.ethereum !== 'undefined') {
+                    try {
+                        provider = new ethers.providers.Web3Provider(window.ethereum);
+                        if (contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
+                            contract = new ethers.Contract(contractAddress, contractABI, provider);
+                            console.log('Web3 provider initialized with contract:', contractAddress);
+                        } else {
+                            console.warn('No valid contract address, using local storage');
+                            contract = null;
+                        }
+                    } catch (error) {
+                        console.error('Web3 provider setup failed:', error);
                         contract = null;
                     }
-                } catch (error) {
-                    console.error('Web3 provider setup failed:', error);
+                } else {
+                    console.warn('No Ethereum provider detected');
                     contract = null;
                 }
-            } else {
-                console.warn('No Ethereum provider detected');
-                contract = null;
+                loadLocalHighScores();
+                console.log('Initial game state:', gameState);
+            } catch (error) {
+                console.error('Setup failed:', error);
             }
-            loadLocalHighScores();
-            console.log('Initial game state:', gameState);
         }
 
         function draw() {
-            if (gameState === 'teamSelect') {
-                background(0, 255, 245); // Whitish pink
-                // Draw curved header
-                textFont('Chewy');
-                textSize(48);
-                fill(199, 21, 133); // Deep pink
-                stroke(128, 128, 128); // Gray outline
-                strokeWeight(2);
-                textAlign(CENTER);
-                let headerText = 'SAVING SUCCINCT SUMMER';
-                let radius = 300; // Arc radius for inward curve
-                let angleStep = 0.05; // Angle between letters
-                push();
-                translate(width / 2, 150);
-                for (let i = 0; i < headerText.length; i++) {
-                    let angle = (i - headerText.length / 2) * angleStep;
+            try {
+                if (gameState === 'teamSelect') {
+                    background(255, 240, 245); // Whitish pink #FFF0F5
+                    // Draw curved header
+                    textFont('Chewy');
+                    textSize(48);
+                    fill(199, 21, 133); // Deep pink
+                    stroke(128, 128, 128); // Gray outline
+                    strokeWeight(2);
+                    textAlign(CENTER);
+                    let headerText = 'SAVING SUCCINCT SUMMER';
+                    let radius = 300; // Arc radius for inward curve
+                    let angleStep = 0.05; // Angle between letters
                     push();
-                    rotate(angle);
-                    translate(0, -radius);
-                    text(headerText[i], 0, 0);
+                    translate(width / 2, 150);
+                    for (let i = 0; i < headerText.length; i++) {
+                        let angle = (i - headerText.length / 2) * angleStep;
+                        push();
+                        rotate(angle);
+                        translate(0, -radius);
+                        text(headerText[i], 0, 0);
+                        pop();
+                    }
                     pop();
-                }
-                pop();
-                noStroke();
-                textFont('Bubblegum Sans');
-                textSize(32);
-                fill(51, 51, 51);
-                text('Choose your team', width / 2, 300);
-                drawButton(pinkButton);
-                drawButton(blueButton);
-            } else if (gameState === 'intro') {
-                background(0, 255, 245);
-                textFont('Bubblegum Sans');
-                textSize(24);
-                textAlign(CENTER);
-                for (let i = 0; i <= lineIndex; i++) {
-                    if (i < introMessage.length) {
-                        let alpha = i === lineIndex ? lineAlpha : 255;
-                        fill(51, 51, 51, alpha);
-                        text(introMessage[i], width / 2, 200 + i * 40);
+                    noStroke();
+                    textFont('Bubblegum Sans');
+                    textSize(32);
+                    fill(51, 51, 51);
+                    text('Choose your team', width / 2, 300);
+                    drawButton(pinkButton);
+                    drawButton(blueButton);
+                } else if (gameState === 'intro') {
+                    background(255, 240, 245);
+                    textFont('Bubblegum Sans');
+                    textSize(24);
+                    textAlign(CENTER);
+                    for (let i = 0; i <= lineIndex; i++) {
+                        if (i < introMessage.length) {
+                            let alpha = i === lineIndex ? lineAlpha : 255;
+                            fill(51, 51, 51, alpha);
+                            text(introMessage[i], width / 2, 200 + i * 40);
+                        }
                     }
-                }
-                if (lineIndex < introMessage.length) {
-                    let elapsed = millis() - lineStartTime;
-                    if (elapsed <= 2000) {
-                        lineAlpha = lerp(0, 255, elapsed / 2000);
-                    } else if (elapsed > 2500) {
-                        lineIndex++;
-                        lineAlpha = 0;
-                        lineStartTime = millis();
+                    if (lineIndex < introMessage.length) {
+                        let elapsed = millis() - lineStartTime;
+                        if (elapsed <= 2000) {
+                            lineAlpha = lerp(0, 255, elapsed / 2000);
+                        } else if (elapsed > 2500) {
+                            lineIndex++;
+                            lineAlpha = 0;
+                            lineStartTime = millis();
+                        }
+                    } else {
+                        showButtons = true;
                     }
-                } else {
-                    showButtons = true;
-                }
-                if (showButtons) {
-                    drawButton(yesButton);
-                    drawButton(noButton);
-                }
-            } else if (gameState === 'login') {
-                background(0, 255, 245);
-                if (walletAddress || username) {
-                    drawButton(startGameButton);
-                }
-                drawButton(walletButton);
-                drawButton(usernameButton);
-                textFont('Bubblegum Sans');
-                textSize(20);
-                fill(51, 51, 51);
-                textAlign(CENTER);
-                text('please sign in with burner wallet', width / 2, 480);
-            } else if (gameState === 'game') {
-                if (!imagesLoaded) {
-                    console.log('Images not loaded, using shapes as fallback');
-                }
-                drawGame();
-            } else if (gameState === 'abandoned') {
-                background(255, 240, 245);
-                textFont('Bubblegum Sans');
-                textSize(40);
-                fill(255, 0, 0);
-                textAlign(CENTER);
-                text('Mission Abandoned', width / 2, height / 2);
-            } else if (gameState === 'saveScore') {
-                background(245, 230, 199);
-                textFont('Bubblegum Sans');
-                textSize(32);
-                fill(51, 51, 51);
-                textAlign(CENTER);
-                text(`Your Score: ${score}`, width / 2, 300);
-                text('Save to Leaderboard?', width / 2, 350);
-                drawButton(saveYesButton);
-                drawButton(saveNoButton);
-                drawButton(leaderboardButton);
-                drawButton(highScoreButton);
-                if (saveScoreChoice !== null) {
+                    if (showButtons) {
+                        drawButton(yesButton);
+                        drawButton(noButton);
+                    }
+                } else if (gameState === 'login') {
+                    background(255, 240, 245);
+                    if (walletAddress || username) {
+                        drawButton(startGameButton);
+                    }
+                    drawButton(walletButton);
+                    drawButton(usernameButton);
+                    textFont('Bubblegum Sans');
+                    textSize(20);
+                    fill(51, 51, 51);
+                    textAlign(CENTER);
+                    text('please sign in with burner wallet', width / 2, 480);
+                } else if (gameState === 'game') {
+                    if (!imagesLoaded) {
+                        console.log('Images not loaded, using shapes as fallback');
+                    }
+                    drawGame();
+                } else if (gameState === 'abandoned') {
+                    background(255, 240, 245);
+                    textFont('Bubblegum Sans');
+                    textSize(40);
+                    fill(255, 0, 0);
+                    textAlign(CENTER);
+                    text('Mission Abandoned', width / 2, height / 2);
+                } else if (gameState === 'saveScore') {
+                    background(245, 230, 199);
+                    textFont('Bubblegum Sans');
+                    textSize(32);
+                    fill(51, 51, 51);
+                    textAlign(CENTER);
+                    text(`Your Score: ${score}`, width / 2, 300);
+                    text('Save to Leaderboard?', width / 2, 350);
+                    drawButton(saveYesButton);
+                    drawButton(saveNoButton);
+                    drawButton(leaderboardButton);
+                    drawButton(highScoreButton);
+                    if (saveScoreChoice !== null) {
+                        drawButton(restartButton);
+                    }
+                } else if (gameState === 'leaderboard') {
+                    background(245, 230, 199); // Beige
+                    fill(0, 128, 0); // Green
+                    rect(150, 60, 500, 400); // Expanded box
+                    textFont('Comic Neue');
+                    textSize(32);
+                    fill(51, 51, 51);
+                    textAlign(CENTER);
+                    text('Leaderboard', width / 2, 100);
+                    textSize(20);
+                    textAlign(LEFT);
+                    leaderboard.sort((a, b) => b.score - a.score);
+                    for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
+                        fill(leaderboard[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
+                        let id = leaderboard[i].address ? leaderboard[i].address.slice(0, 12) + '...' : leaderboard[i].username.slice(0, 12);
+                        text(`${i + 1}. ${id}: ${leaderboard[i].score}`, 170, 140 + i * 30);
+                    }
+                    drawButton(restartButton);
+                } else if (gameState === 'highScore') {
+                    background(245, 230, 199); // Beige
+                    fill(128, 128, 128); // Gray
+                    rect(150, 60, 500, 400); // Expanded box
+                    textFont('Comic Neue');
+                    textSize(32);
+                    fill(51, 51, 51);
+                    textAlign(CENTER);
+                    text('Your High Scores', width / 2, 100);
+                    textSize(20);
+                    textAlign(LEFT);
+                    highScores.sort((a, b) => b.score - a.score);
+                    let startIdx = floor(scrollOffset / 30);
+                    for (let i = startIdx; i < Math.min(startIdx + 12, highScores.length); i++) {
+                        fill(team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
+                        let id = highScores[i].address ? highScores[i].address.slice(0, 12) + '...' : highScores[i].username.slice(0, 12);
+                        text(`${i + 1}. ${id}: ${highScores[i].score}`, 170, 140 + (i - startIdx) * 30);
+                    }
                     drawButton(restartButton);
                 }
-            } else if (gameState === 'leaderboard') {
-                background(245, 230, 199); // Beige
-                fill(0, 128, 0); // Green
-                rect(150, 60, 500, 400); // Expanded box
-                textFont('Comic Neue');
-                textSize(32);
-                fill(51, 51, 51);
-                textAlign(CENTER);
-                text('Leaderboard', width / 2, 100);
+            } catch (error) {
+                console.error('Draw loop error:', error);
+                background(255, 0, 0); // Red screen to indicate error
+                textFont('sans-serif');
                 textSize(20);
-                textAlign(LEFT);
-                leaderboard.sort((a, b) => b.score - a.score);
-                for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
-                    fill(leaderboard[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
-                    let id = leaderboard[i].address ? leaderboard[i].address.slice(0, 12) + '...' : leaderboard[i].username.slice(0, 12);
-                    text(`${i + 1}. ${id}: ${leaderboard[i].score}`, 170, 140 + i * 30);
-                }
-                drawButton(restartButton);
-            } else if (gameState === 'highScore') {
-                background(245, 230, 199); // Beige
-                fill(128, 128, 128); // Gray
-                rect(150, 60, 500, 400); // Expanded box
-                textFont('Comic Neue');
-                textSize(32);
-                fill(51, 51, 51);
+                fill(255);
                 textAlign(CENTER);
-                text('Your High Scores', width / 2, 100);
-                textSize(20);
-                textAlign(LEFT);
-                highScores.sort((a, b) => b.score - a.score);
-                let startIdx = floor(scrollOffset / 30);
-                for (let i = startIdx; i < Math.min(startIdx + 12, highScores.length); i++) {
-                    fill(team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
-                    let id = highScores[i].address ? highScores[i].address.slice(0, 12) + '...' : highScores[i].username.slice(0, 12);
-                    text(`${i + 1}. ${id}: ${highScores[i].score}`, 170, 140 + (i - startIdx) * 30);
-                }
-                drawButton(restartButton);
-            }
-        }
-
-        function drawGame() {
-            console.log('Game state: game, Score:', score, 'Lives:', lives);
-            background(245, 230, 199);
-            if (mouseIsPressed && !gameOver) {
-                jar.x = constrain(mouseX - jar.w / 2, 0, width - jar.w);
-                jar.y = constrain(mouseY - jar.h / 2, 0, height - jar.h);
-            }
-            if (!gameOver) {
-                if (millis() - lastDropletSpawn > 2000) {
-                    spawnDroplet();
-                    lastDropletSpawn = millis();
-                }
-                if (bees.length < 5 && millis() > nextBeeSpawnTime) {
-                    spawnBee();
-                    lastBeeSpawn = millis();
-                    nextBeeSpawnTime = millis() + (bees.length < 5 ? 10000 : 3000);
-                }
-                for (let i = droplets.length - 1; i >= 0; i--) {
-                    let d = droplets[i];
-                    d.x += d.vx;
-                    d.y += d.vy;
-                    if (dropletImg && dropletImg.width > 0) {
-                        image(dropletImg, d.x, d.y, 20, 20);
-                    } else {
-                        console.log('Droplet image not loaded, using fallback');
-                        fill(255, 200, 0);
-                        noStroke();
-                        beginShape();
-                        vertex(d.x + 10, d.y);
-                        bezierVertex(d.x + 15, d.y + 5, d.x + 15, d.y + 15, d.x + 10, d.y + 20);
-                        bezierVertex(d.x + 5, d.y + 15, d.x + 5, d.y + 5, d.x + 10, d.y);
-                        endShape(CLOSE);
-                    }
-                    if (collides(jar, d)) {
-                        score += 10;
-                        droplets.splice(i, 1);
-                        continue;
-                    }
-                    if (d.y > height) droplets.splice(i, 1);
-                }
-                for (let i = bees.length - 1; i >= 0; i--) {
-                    let b = bees[i];
-                    if (bees.length === 5) {
-                        if (i === fastBeeIndex) {
-                            if (millis() - b.phaseStart > b.phaseDuration) {
-                                if (b.phase === 'slow') {
-                                    b.phase = b.phaseCycleIndex % 2 === 0 ? 'dash' : 'hunt';
-                                    b.phaseCycleIndex++;
-                                } else {
-                                    b.phase = 'slow';
-                                }
-                                b.phaseStart = millis();
-                                b.phaseDuration = b.phase === 'slow' ? 3000 : 1000;
-                            }
-                        } else {
-                            b.phase = 'slow';
-                        }
-                    } else {
-                        if (millis() - b.phaseStart > b.phaseDuration) {
-                            if (b.phase === 'slow') {
-                                b.phase = b.phaseCycleIndex % 2 === 0 ? 'dash' : 'hunt';
-                                b.phaseCycleIndex++;
-                            } else {
-                                b.phase = 'slow';
-                            }
-                            b.phaseStart = millis();
-                            b.phaseDuration = b.phase === 'slow' ? 3000 : 1000;
-                        }
-                    }
-                    if (b.phase === 'slow') {
-                        let speed = random(1, 2);
-                        let angle = random(TWO_PI);
-                        b.vx = speed * cos(angle);
-                        b.vy = speed * sin(angle);
-                    } else if (b.phase === 'dash') {
-                        let speed = random(5, 7);
-                        let angle = random(TWO_PI);
-                        b.vx = speed * cos(angle);
-                        b.vy = speed * sin(angle);
-                    } else { // hunt
-                        let speed = random(7, 9);
-                        let dx = (jar.x + jar.w / 2) - (b.x + b.w / 2);
-                        let dy = (jar.y + jar.h / 2) - (b.y + b.h / 2);
-                        let mag = sqrt(dx * dx + dy * dy);
-                        if (mag > 0) {
-                            b.vx = (dx / mag) * speed;
-                            b.vy = (dy / mag) * speed;
-                        } else {
-                            b.vx = speed;
-                            b.vy = 0;
-                        }
-                    }
-                    b.x += b.vx;
-                    b.y += b.vy;
-                    if (beeImg && beeImg.width > 0) {
-                        image(beeImg, b.x, b.y, 30, 30);
-                    } else {
-                        console.log('Bee image not loaded, using fallback');
-                        fill(255, 204, 0);
-                        noStroke();
-                        beginShape();
-                        for (let a = 0; a < TWO_PI; a += TWO_PI / 6) {
-                            let x = b.x + 15 + cos(a) * 15;
-                            let y = b.y + 15 + sin(a) * 15;
-                            vertex(x, y);
-                        }
-                        endShape(CLOSE);
-                        stroke(0);
-                        strokeWeight(2);
-                        line(b.x + 10, b.y + 5, b.x + 20, b.y + 5);
-                        line(b.x + 10, b.y + 15, b.x + 20, b.y + 15);
-                    }
-                    if (collides(jar, b)) {
-                        lives -= 1;
-                        bees.splice(i, 1);
-                        if (lives <= 0) gameOver = true;
-                        updateFastBeeIndex(i);
-                        continue;
-                    }
-                    if (b.x > width || b.x < -30 || b.y > height || b.y < -30) {
-                        bees.splice(i, 1);
-                        updateFastBeeIndex(i);
-                        continue;
-                    }
-                }
-                if (bees.length === 5 && fastBeeIndex >= 0) {
-                    let fastBee = bees[fastBeeIndex];
-                    if (fastBee.phase === 'slow' && millis() - fastBee.phaseStart > fastBee.phaseDuration) {
-                        updateFastBeeIndex(fastBeeIndex);
-                    }
-                }
-            }
-            if (jarImg && jarImg.width > 0) {
-                image(jarImg, jar.x, jar.y, jar.w, jar.h);
-            } else {
-                console.log('Jar image not loaded, using fallback');
-                fill(200, 150, 0);
-                noStroke();
-                rect(jar.x, jar.y + 10, jar.w, jar.h - 10);
-                arc(jar.x + jar.w / 2, jar.y + 10, jar.w, 20, PI, TWO_PI);
-            }
-            textFont('Comic Neue');
-            textSize(20);
-            fill(team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
-            textAlign(LEFT);
-            text(`Score: ${score}`, 10, 30);
-            text(`Lives: ${lives}`, 10, 60);
-            drawButton(leaderboardButton);
-            drawButton(highScoreButton);
-            if (gameOver) {
-                gameState = 'saveScore';
-                saveScoreChoice = null;
-                fetchLeaderboard();
+                text('Error rendering game. Check console.', width / 2, height / 2);
             }
         }
 
         function drawButton(btn) {
-            fill(btn.color);
-            rect(btn.x, btn.y, btn.w, btn.h);
-            fill(0);
-            textFont('Bubblegum Sans');
-            textSize(20);
-            textAlign(CENTER, CENTER);
-            text(btn.text, btn.x + btn.w / 2, btn.y + btn.h / 2);
+            try {
+                fill(btn.color);
+                rect(btn.x, btn.y, btn.w, btn.h);
+                fill(0);
+                textFont('Bubblegum Sans');
+                textSize(20);
+                textAlign(CENTER, CENTER);
+                text(btn.text, btn.x + btn.w / 2, btn.y + btn.h / 2);
+            } catch (error) {
+                console.error('Draw button error:', error);
+            }
         }
 
         async function mousePressed() {
-            console.log('Mouse pressed, state:', gameState);
-            if (gameState === 'teamSelect') {
-                if (isMouseOverButton(pinkButton)) {
-                    team = 'pink';
-                    introMessage = pinkIntroMessage;
-                    gameState = 'intro';
-                    lineIndex = 0;
-                    lineAlpha = 0;
-                    lineStartTime = millis();
-                    showButtons = false;
-                    console.log('Selected Pink team');
-                    beeImg = pinkBeeImg;
-                    jarImg = pinkJarImg;
-                } else if (isMouseOverButton(blueButton)) {
-                    team = 'blue';
-                    introMessage = blueIntroMessage;
-                    gameState = 'intro';
-                    lineIndex = 0;
-                    lineAlpha = 0;
-                    lineStartTime = millis();
-                    showButtons = false;
-                    console.log('Selected Blue team');
-                    beeImg = blueBeeImg;
-                    jarImg = blueJarImg;
-                }
-            } else if (gameState === 'intro' && showButtons) {
-                if (isMouseOverButton(yesButton)) {
-                    gameState = 'login';
-                    console.log('Transition to login');
-                } else if (isMouseOverButton(noButton)) {
-                    gameState = 'abandoned';
-                }
-            } else if (gameState === 'login') {
-                if (isMouseOverButton(walletButton)) {
-                    if (!walletAddress) {
-                        try {
-                            await window.ethereum.request({ method: 'eth_requestAccounts' });
-                            signer = provider.getSigner();
-                            walletAddress = await signer.getAddress();
-                            isWalletConnected = true;
-                            walletButton.text = `Connected: ${walletAddress.slice(0, 6)}...`;
-                            console.log('Wallet connected:', walletAddress);
-                            await window.ethereum.request({
-                                method: 'wallet_switchEthereumChain',
-                                params: [{ chainId: '0xaa36a7' }]
-                            });
+            console.log('Mouse pressed, state:', gameState, 'Mouse:', mouseX, mouseY);
+            try {
+                if (gameState === 'teamSelect') {
+                    if (isMouseOverButton(pinkButton)) {
+                        team = 'pink';
+                        introMessage = pinkIntroMessage;
+                        gameState = 'intro';
+                        lineIndex = 0;
+                        lineAlpha = 0;
+                        lineStartTime = millis();
+                        showButtons = false;
+                        console.log('Selected Pink team');
+                        beeImg = pinkBeeImg;
+                        jarImg = pinkJarImg;
+                    } else if (isMouseOverButton(blueButton)) {
+                        team = 'blue';
+                        introMessage = blueIntroMessage;
+                        gameState = 'intro';
+                        lineIndex = 0;
+                        lineAlpha = 0;
+                        lineStartTime = millis();
+                        showButtons = false;
+                        console.log('Selected Blue team');
+                        beeImg = blueBeeImg;
+                        jarImg = blueJarImg;
+                    }
+                } else if (gameState === 'intro' && showButtons) {
+                    if (isMouseOverButton(yesButton)) {
+                        gameState = 'login';
+                        console.log('Transition to login');
+                    } else if (isMouseOverButton(noButton)) {
+                        gameState = 'abandoned';
+                    }
+                } else if (gameState === 'login') {
+                    if (isMouseOverButton(walletButton)) {
+                        if (!walletAddress) {
+                            try {
+                                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                                signer = provider.getSigner();
+                                walletAddress = await signer.getAddress();
+                                isWalletConnected = true;
+                                walletButton.text = `Connected: ${walletAddress.slice(0, 6)}...`;
+                                console.log('Wallet connected:', walletAddress);
+                                await window.ethereum.request({
+                                    method: 'wallet_switchEthereumChain',
+                                    params: [{ chainId: '0xaa36a7' }]
+                                });
+                                fetchHighScores();
+                            } catch (error) {
+                                console.error('Wallet connection failed:', error);
+                                alert('Wallet connection failed. You can start the game with a username.');
+                            }
+                        } else {
+                            walletAddress = null;
+                            isWalletConnected = false;
+                            walletButton.text = 'Sign in with Wallet';
+                            console.log('Wallet disconnected');
+                        }
+                    } else if (isMouseOverButton(usernameButton)) {
+                        let newUsername = prompt('Enter your username:');
+                        if (newUsername) {
+                            username = newUsername;
+                            usernameButton.text = username.length > 10 ? username.slice(0, 10) + '...' : username;
+                            console.log('Username set:', username);
                             fetchHighScores();
-                        } catch (error) {
-                            console.error('Wallet connection failed:', error);
-                            alert('Wallet connection failed. You can start the game with a username.');
                         }
-                    } else {
-                        walletAddress = null;
-                        isWalletConnected = false;
-                        walletButton.text = 'Sign in with Wallet';
-                        console.log('Wallet disconnected');
+                    } else if ((walletAddress || username) && isMouseOverButton(startGameButton)) {
+                        gameState = 'game';
+                        jar = { x: width / 2, y: height / 2, w: 50, h: 50 };
+                        score = 0;
+                        lives = 3;
+                        gameOver = false;
+                        droplets = [];
+                        bees = [];
+                        fastBeeIndex = -1;
+                        spawnDroplet();
+                        spawnBee();
+                        nextBeeSpawnTime = millis() + 10000;
+                        console.log('Starting game');
                     }
-                } else if (isMouseOverButton(usernameButton)) {
-                    let newUsername = prompt('Enter your username:');
-                    if (newUsername) {
-                        username = newUsername;
-                        usernameButton.text = username.length > 10 ? username.slice(0, 10) + '...' : username;
-                        console.log('Username set:', username);
+                } else if (gameState === 'saveScore') {
+                    if (isMouseOverButton(saveYesButton) && saveScoreChoice === null) {
+                        saveScoreChoice = true;
+                        if (walletAddress && contract && contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
+                            try {
+                                let contractWithSigner = contract.connect(signer);
+                                let tx = await contractWithSigner.saveScore(score, team);
+                                await tx.wait();
+                                console.log('Score saved to blockchain');
+                                highScores.push({ address: walletAddress, score, team });
+                                saveLocalHighScores();
+                                fetchLeaderboard();
+                            } catch (error) {
+                                console.error('Failed to save score to blockchain:', error);
+                                highScores.push({ address: walletAddress, score, team });
+                                saveLocalHighScores();
+                            }
+                        } else if (username) {
+                            leaderboard.push({ username, score, team });
+                            highScores.push({ username, score, team });
+                            saveLocalHighScores();
+                            console.log('Score saved locally');
+                        } else {
+                            console.warn('No wallet or username, score not saved');
+                        }
+                    } else if (isMouseOverButton(saveNoButton) && saveScoreChoice === null) {
+                        saveScoreChoice = false;
+                    }
+                    if (saveScoreChoice !== null && isMouseOverButton(restartButton)) {
+                        gameState = 'game';
+                        score = 0;
+                        lives = 3;
+                        gameOver = false;
+                        droplets = [];
+                        bees = [];
+                        fastBeeIndex = -1;
+                        spawnDroplet();
+                        spawnBee();
+                        lastDropletSpawn = millis();
+                        lastBeeSpawn = millis();
+                        nextBeeSpawnTime = millis() + 10000;
+                    }
+                } else if (gameState === 'game' || gameState === 'leaderboard' || gameState === 'highScore') {
+                    if (isMouseOverButton(leaderboardButton)) {
+                        gameState = 'leaderboard';
+                        fetchLeaderboard();
+                    } else if (isMouseOverButton(highScoreButton)) {
+                        gameState = 'highScore';
+                        scrollOffset = 0;
                         fetchHighScores();
+                    } else if ((gameState === 'leaderboard' || gameState === 'highScore') && isMouseOverButton(restartButton)) {
+                        gameState = 'game';
+                        score = 0;
+                        lives = 3;
+                        gameOver = false;
+                        droplets = [];
+                        bees = [];
+                        fastBeeIndex = -1;
+                        spawnDroplet();
+                        spawnBee();
+                        lastDropletSpawn = millis();
+                        lastBeeSpawn = millis();
+                        nextBeeSpawnTime = millis() + 10000;
                     }
-                } else if ((walletAddress || username) && isMouseOverButton(startGameButton)) {
-                    gameState = 'game';
-                    jar = { x: width / 2, y: height / 2, w: 50, h: 50 };
-                    score = 0;
-                    lives = 3;
-                    gameOver = false;
-                    droplets = [];
-                    bees = [];
-                    fastBeeIndex = -1;
-                    spawnDroplet();
-                    spawnBee();
-                    nextBeeSpawnTime = millis() + 10000;
-                    console.log('Starting game');
                 }
-            } else if (gameState === 'saveScore') {
-                if (isMouseOverButton(saveYesButton) && saveScoreChoice === null) {
-                    saveScoreChoice = true;
-                    if (walletAddress && contract && contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
-                        try {
-                            let contractWithSigner = contract.connect(signer);
-                            let tx = await contractWithSigner.saveScore(score, team);
-                            await tx.wait();
-                            console.log('Score saved to blockchain');
-                            highScores.push({ address: walletAddress, score, team });
-                            saveLocalHighScores();
-                            fetchLeaderboard();
-                        } catch (error) {
-                            console.error('Failed to save score to blockchain:', error);
-                            highScores.push({ address: walletAddress, score, team });
-                            saveLocalHighScores();
-                        }
-                    } else if (username) {
-                        leaderboard.push({ username, score, team });
-                        highScores.push({ username, score, team });
-                        saveLocalHighScores();
-                        console.log('Score saved locally');
-                    }
-                } else if (isMouseOverButton(saveNoButton) && saveScoreChoice === null) {
-                    saveScoreChoice = false;
-                }
-                if (saveScoreChoice !== null && isMouseOverButton(restartButton)) {
-                    gameState = 'game';
-                    score = 0;
-                    lives = 3;
-                    gameOver = false;
-                    droplets = [];
-                    bees = [];
-                    fastBeeIndex = -1;
-                    spawnDroplet();
-                    spawnBee();
-                    lastDropletSpawn = millis();
-                    lastBeeSpawn = millis();
-                    nextBeeSpawnTime = millis() + 10000;
-                }
-            } else if (gameState === 'game' || gameState === 'leaderboard' || gameState === 'highScore') {
-                if (isMouseOverButton(leaderboardButton)) {
-                    gameState = 'leaderboard';
-                    fetchLeaderboard();
-                } else if (isMouseOverButton(highScoreButton)) {
-                    gameState = 'highScore';
-                    scrollOffset = 0;
-                    fetchHighScores();
-                } else if ((gameState === 'leaderboard' || gameState === 'highScore') && isMouseOverButton(restartButton)) {
-                    gameState = 'game';
-                    score = 0;
-                    lives = 3;
-                    gameOver = false;
-                    droplets = [];
-                    bees = [];
-                    fastBeeIndex = -1;
-                    spawnDroplet();
-                    spawnBee();
-                    lastDropletSpawn = millis();
-                    lastBeeSpawn = millis();
-                    nextBeeSpawnTime = millis() + 10000;
-                }
+            } catch (error) {
+                console.error('Mouse pressed error:', error);
             }
         }
 
         function mouseWheel(event) {
-            if (gameState === 'highScore') {
-                scrollOffset += event.delta;
-                scrollOffset = constrain(scrollOffset, 0, Math.max(0, highScores.length * 30 - 360));
+            try {
+                if (gameState === 'highScore') {
+                    scrollOffset += event.delta;
+                    scrollOffset = constrain(scrollOffset, 0, Math.max(0, highScores.length * 30 - 360));
+                }
+            } catch (error) {
+                console.error('Mouse wheel error:', error);
             }
         }
 
         async function fetchLeaderboard() {
-            leaderboard = [];
-            if (walletAddress && contract && contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
-                try {
+            try {
+                leaderboard = [];
+                if (walletAddress && contract && contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
                     let scores = await contract.getScores();
                     for (let score of scores) {
                         leaderboard.push({
@@ -621,19 +503,20 @@
                             team: score.team
                         });
                     }
-                } catch (error) {
-                    console.error('Failed to fetch leaderboard:', error);
                 }
-            }
-            if (username) {
-                leaderboard = leaderboard.concat(highScores.filter(s => s.username === username));
+                if (username) {
+                    leaderboard = leaderboard.concat(highScores.filter(s => s.username === username));
+                }
+                console.log('Leaderboard fetched:', leaderboard);
+            } catch (error) {
+                console.error('Failed to fetch leaderboard:', error);
             }
         }
 
         async function fetchHighScores() {
-            highScores = [];
-            if (walletAddress && contract && contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
-                try {
+            try {
+                highScores = [];
+                if (walletAddress && contract && contractAddress !== 'YOUR_CONTRACT_ADDRESS') {
                     let scores = await contract.getPlayerScores(walletAddress);
                     for (let score of scores) {
                         highScores.push({
@@ -642,75 +525,108 @@
                             team: score.team
                         });
                     }
-                } catch (error) {
-                    console.error('Failed to fetch high scores:', error);
                 }
-            }
-            if (username) {
-                let localScores = JSON.parse(localStorage.getItem(`highScores_${username}`) || '[]');
-                highScores = highScores.concat(localScores);
+                if (username) {
+                    let localScores = JSON.parse(localStorage.getItem(`highScores_${username}`) || '[]');
+                    highScores = highScores.concat(localScores);
+                }
+                console.log('High scores fetched:', highScores);
+            } catch (error) {
+                console.error('Failed to fetch high scores:', error);
             }
         }
 
         function saveLocalHighScores() {
-            if (username) {
-                let localScores = highScores.filter(s => s.username === username);
-                localStorage.setItem(`highScores_${username}`, JSON.stringify(localScores));
-            }
-            if (walletAddress) {
-                let localScores = highScores.filter(s => s.address === walletAddress);
-                localStorage.setItem(`highScores_${walletAddress}`, JSON.stringify(localScores));
+            try {
+                if (username) {
+                    let localScores = highScores.filter(s => s.username === username);
+                    localStorage.setItem(`highScores_${username}`, JSON.stringify(localScores));
+                }
+                if (walletAddress) {
+                    let localScores = highScores.filter(s => s.address === walletAddress);
+                    localStorage.setItem(`highScores_${walletAddress}`, JSON.stringify(localScores));
+                }
+                console.log('Local high scores saved');
+            } catch (error) {
+                console.error('Failed to save local high scores:', error);
             }
         }
 
         function loadLocalHighScores() {
-            let keys = Object.keys(localStorage).filter(k => k.startsWith('highScores_'));
-            for (let key of keys) {
-                let scores = JSON.parse(localStorage.getItem(key) || '[]');
-                highScores = highScores.concat(scores);
+            try {
+                let keys = Object.keys(localStorage).filter(k => k.startsWith('highScores_'));
+                for (let key of keys) {
+                    let scores = JSON.parse(localStorage.getItem(key) || '[]');
+                    highScores = highScores.concat(scores);
+                }
+                console.log('Local high scores loaded:', highScores);
+            } catch (error) {
+                console.error('Failed to load local high scores:', error);
             }
         }
 
         function isMouseOverButton(btn) {
-            return mouseX > btn.x && mouseX < btn.x + btn.w && mouseY > btn.y && mouseY < btn.y + btn.h;
+            try {
+                return mouseX > btn.x && mouseX < btn.x + btn.w && mouseY > btn.y && mouseY < btn.y + btn.h;
+            } catch (error) {
+                console.error('isMouseOverButton error:', error);
+                return false;
+            }
         }
 
         function spawnDroplet() {
-            let x = random(0, width);
-            let vx = random(-1, 1);
-            let vy = random(0.5, 2);
-            droplets.push({ x, y: 0, vx, vy, w: 20, h: 20 });
+            try {
+                let x = random(0, width);
+                let vx = random(-1, 1);
+                let vy = random(0.5, 2);
+                droplets.push({ x, y: 0, vx, vy, w: 20, h: 20 });
+            } catch (error) {
+                console.error('Spawn droplet error:', error);
+            }
         }
 
         function spawnBee() {
-            let x = random(0, width);
-            let y = random(0, height);
-            let phase = 'slow';
-            let speed = random(1, 2);
-            let angle = random(TWO_PI);
-            let vx = speed * cos(angle);
-            let vy = speed * sin(angle);
-            let phaseStart = millis();
-            let phaseDuration = 3000;
-            let phaseCycleIndex = 0;
-            bees.push({ x, y, vx, vy, w: 30, h: 30, phase, phaseStart, phaseDuration, phaseCycleIndex });
-            if (bees.length === 5 && fastBeeIndex === -1) {
-                fastBeeIndex = bees.length - 1;
+            try {
+                let x = random(0, width);
+                let y = random(0, height);
+                let phase = 'slow';
+                let speed = random(1, 2);
+                let angle = random(TWO_PI);
+                let vx = speed * cos(angle);
+                let vy = speed * sin(angle);
+                let phaseStart = millis();
+                let phaseDuration = 3000;
+                let phaseCycleIndex = 0;
+                bees.push({ x, y, vx, vy, w: 30, h: 30, phase, phaseStart, phaseDuration, phaseCycleIndex });
+                if (bees.length === 5 && fastBeeIndex === -1) {
+                    fastBeeIndex = bees.length - 1;
+                }
+            } catch (error) {
+                console.error('Spawn bee error:', error);
             }
         }
 
         function updateFastBeeIndex(removedIndex) {
-            if (bees.length < 5) {
-                fastBeeIndex = -1;
-            } else if (fastBeeIndex === removedIndex) {
-                fastBeeIndex = floor(random(bees.length));
-            } else if (fastBeeIndex > removedIndex) {
-                fastBeeIndex--;
+            try {
+                if (bees.length < 5) {
+                    fastBeeIndex = -1;
+                } else if (fastBeeIndex === removedIndex) {
+                    fastBeeIndex = floor(random(bees.length));
+                } else if (fastBeeIndex > removedIndex) {
+                    fastBeeIndex--;
+                }
+            } catch (error) {
+                console.error('Update fast bee index error:', error);
             }
         }
 
         function collides(a, b) {
-            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+            try {
+                return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+            } catch (error) {
+                console.error('Collision check error:', error);
+                return false;
+            }
         }
     </script>
 </body>

@@ -19,7 +19,7 @@
         let score = 0, lives = 3, gameOver = false;
         let lastDropletSpawn = 0, lastBeeSpawn = 0, nextBeeSpawnTime = 0;
         let fastBeeIndex = -1;
-        let beeImg, jarImg;
+        let beeImg, jarImg, dropletImg;
         let pinkBeeImg, pinkJarImg, blueBeeImg, blueJarImg;
         let imagesLoaded = false;
 
@@ -46,12 +46,13 @@
             pinkJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pink.png');
             blueBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pfly.png');
             blueJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/blue.png');
+            dropletImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/drop.png');
         }
 
         function setup() {
             createCanvas(800, 600);
             // Check if images loaded successfully
-            imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0;
+            imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0 && dropletImg.width > 0;
             console.log('Images loaded:', imagesLoaded);
         }
 
@@ -91,12 +92,8 @@
 
         function drawGame() {
             console.log('Droplets:', droplets.length, 'Bees:', bees.length, 'Jar X:', jar.x, 'Jar Y:', jar.y, 'Fast Bee:', fastBeeIndex);
-            // Draw meadow gradient background
-            for (let y = 0; y < height; y++) {
-                let c = lerpColor(color(100, 150, 255), color(50, 100, 50), y / height);
-                stroke(c);
-                line(0, y, width, y);
-            }
+            // Draw beige background to accentuate bee/jar colors
+            background(245, 230, 199); // #F5E6C7
 
             // Update jar position if mouse is pressed (dragging)
             if (mouseIsPressed && !gameOver) {
@@ -123,13 +120,19 @@
                     let d = droplets[i];
                     d.x += d.vx;
                     d.y += d.vy;
-                    fill(255, 200, 0);
-                    noStroke();
-                    beginShape();
-                    vertex(d.x + 10, d.y);
-                    bezierVertex(d.x + 15, d.y + 5, d.x + 15, d.y + 15, d.x + 10, d.y + 20);
-                    bezierVertex(d.x + 5, d.y + 15, d.x + 5, d.y + 5, d.x + 10, d.y);
-                    endShape(CLOSE);
+                    // Draw droplet (image or fallback shape)
+                    if (dropletImg && dropletImg.width > 0) {
+                        image(dropletImg, d.x, d.y, 20, 20);
+                    } else {
+                        console.log('Droplet image not loaded, using fallback');
+                        fill(255, 200, 0);
+                        noStroke();
+                        beginShape();
+                        vertex(d.x + 10, d.y);
+                        bezierVertex(d.x + 15, d.y + 5, d.x + 15, d.y + 15, d.x + 10, d.y + 20);
+                        bezierVertex(d.x + 5, d.y + 15, d.x + 5, d.y + 5, d.x + 10, d.y);
+                        endShape(CLOSE);
+                    }
 
                     // Check collision with jar
                     if (collides(jar, d)) {

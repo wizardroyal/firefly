@@ -10,10 +10,11 @@
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
 </head>
 <body>
     <script>
-        let gameState = 'teamSelect'; // teamSelect, intro, game, abandoned
+        let gameState = 'login'; // login, teamSelect, intro, game, abandoned, leaderboard, saveScore
         let team = null; // 'pink' or 'blue'
         let jar, droplets = [], bees = [];
         let score = 0, lives = 3, gameOver = false;
@@ -22,6 +23,11 @@
         let beeImg, jarImg, dropletImg;
         let pinkBeeImg, pinkJarImg, blueBeeImg, blueJarImg;
         let imagesLoaded = false;
+        let walletAddress = null;
+        let xUsername = null;
+        let provider, signer, contract;
+        let leaderboard = [];
+        let saveScoreChoice = null;
 
         // Intro animation variables
         let introMessage = [];
@@ -45,13 +51,51 @@
         ];
 
         // Buttons
+        let walletButton = { x: 300, y: 350, w: 200, h: 50, color: [100, 100, 255], text: 'Connect Wallet' };
+        let xButton = { x: 300, y: 420, w: 200, h: 50, color: [255, 100, 100], text: 'Sign in with X' };
         let yesButton = { x: 300, y: 450, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
         let noButton = { x: 400, y: 450, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
         let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [199, 21, 133], text: 'PINK' }; // Deep pink #C71585
         let blueButton = { x: 400, y: 400, w: 100, h: 50, color: [0, 0, 255], text: 'BLUE' };
+        let leaderboardButton = { x: 700, y: 10, w: 80, h: 30, color: [128, 128, 128], text: 'Leaderboard' };
+        let saveYesButton = { x: 300, y: 400, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
+        let saveNoButton = { x: 400, y: 400, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
+        let restartButton = { x: 350, y: 480, w: 100, h: 50, color: [0, 128, 0], text: 'Restart' };
+
+        // Smart contract ABI (simplified)
+        const contractABI = [
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "_score", "type": "uint256"},
+                    {"internalType": "string", "name": "_team", "type": "string"}
+                ],
+                "name": "saveScore",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getScores",
+                "outputs": [
+                    {
+                        "components": [
+                            {"internalType": "address", "name": "player", "type": "address"},
+                            {"internalType": "uint256", "name": "score", "type": "uint256"},
+                            {"internalType": "string", "name": "team", "type": "string"}
+                        ],
+                        "internalType": "struct HoneyCatchLeaderboard.Score[]",
+                        "name": "",
+                        "type": "tuple[]"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+        const contractAddress = 'YOUR_CONTRACT_ADDRESS'; // Deploy on Sepolia and replace
 
         function preload() {
-            // Load all images at start using raw GitHub URLs
             console.log('Preloading images...');
             pinkBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/bfly.png');
             pinkJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pink.png');
@@ -60,41 +104,51 @@
             dropletImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/drop.png');
         }
 
-        function setup() {
+        async function setup() {
             createCanvas(800, 600);
             textFont('Lobster');
-            // Check if images loaded successfully
             imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0 && dropletImg.width > 0;
             console.log('Images loaded:', imagesLoaded);
+            // Initialize ethers.js
+            if (typeof window.ethereum !== 'undefined') {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                contract = new ethers.Contract(contractAddress, contractABI, provider);
+            }
         }
 
         function draw() {
-            if (gameState === 'teamSelect') {
-                background(255, 240, 245); // Whitish pink #FFF0F5
+            if (gameState === 'login') {
+                background(255, 240, 245); // Whitish pink
                 textSize(32);
-                fill(51, 51, 51); // Dark gray #333333
+                fill(51, 51, 51);
+                textAlign(CENTER);
+                text('Sign in to play', width / 2, 300);
+                drawButton(walletButton);
+                drawButton(xButton);
+            } else if (gameState === 'teamSelect') {
+                background(255, 240, 245);
+                textSize(32);
+                fill(51, 51, 51);
                 textAlign(CENTER);
                 text('Choose your team', width / 2, 300);
                 drawButton(pinkButton);
                 drawButton(blueButton);
             } else if (gameState === 'intro') {
-                background(255, 240, 245); // Whitish pink
+                background(255, 240, 245);
                 textSize(24);
                 textAlign(CENTER);
-                // Draw lines up to current index
                 for (let i = 0; i <= lineIndex; i++) {
                     if (i < introMessage.length) {
                         let alpha = i === lineIndex ? lineAlpha : 255;
-                        fill(51, 51, 51, alpha); // Dark gray with fade-in
+                        fill(51, 51, 51, alpha);
                         text(introMessage[i], width / 2, 200 + i * 40);
                     }
                 }
-                // Update fade-in for current line
                 if (lineIndex < introMessage.length) {
                     let elapsed = millis() - lineStartTime;
-                    if (elapsed <= 2000) { // 2s fade-in
+                    if (elapsed <= 2000) {
                         lineAlpha = lerp(0, 255, elapsed / 2000);
-                    } else if (elapsed > 2500) { // 2s fade + 0.5s delay
+                    } else if (elapsed > 2500) {
                         lineIndex++;
                         lineAlpha = 0;
                         lineStartTime = millis();
@@ -102,7 +156,6 @@
                 } else {
                     showButtons = true;
                 }
-                // Draw YES/NO buttons
                 if (showButtons) {
                     drawButton(yesButton);
                     drawButton(noButton);
@@ -113,45 +166,62 @@
                 }
                 drawGame();
             } else if (gameState === 'abandoned') {
-                background(255, 240, 245); // Whitish pink
+                background(255, 240, 245);
                 textSize(40);
                 fill(255, 0, 0);
                 textAlign(CENTER);
                 text('Mission Abandoned', width / 2, height / 2);
+            } else if (gameState === 'saveScore') {
+                background(245, 230, 199);
+                textSize(32);
+                fill(51, 51, 51);
+                textAlign(CENTER);
+                text(`Your Score: ${score}`, width / 2, 300);
+                text('Save to Leaderboard?', width / 2, 350);
+                drawButton(saveYesButton);
+                drawButton(saveNoButton);
+                if (saveScoreChoice !== null) {
+                    drawButton(restartButton);
+                }
+            } else if (gameState === 'leaderboard') {
+                background(255, 240, 245);
+                textSize(32);
+                fill(51, 51, 51);
+                textAlign(CENTER);
+                text('Leaderboard', width / 2, 100);
+                textSize(20);
+                textAlign(LEFT);
+                leaderboard.sort((a, b) => b.score - a.score);
+                for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
+                    fill(leaderboard[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
+                    let id = leaderboard[i].address || leaderboard[i].username;
+                    text(`${i + 1}. ${id.slice(0, 6)}...${id.slice(-4)}: ${leaderboard[i].score}`, 200, 150 + i * 30);
+                }
+                drawButton(restartButton);
             }
         }
 
         function drawGame() {
             console.log('Droplets:', droplets.length, 'Bees:', bees.length, 'Jar X:', jar.x, 'Jar Y:', jar.y, 'Fast Bee:', fastBeeIndex);
-            // Draw beige background
-            background(245, 230, 199); // #F5E6C7
-
-            // Update jar position if mouse is pressed (dragging)
+            background(245, 230, 199); // Beige
             if (mouseIsPressed && !gameOver) {
                 jar.x = constrain(mouseX - jar.w / 2, 0, width - jar.w);
                 jar.y = constrain(mouseY - jar.h / 2, 0, height - jar.h);
             }
-
             if (!gameOver) {
-                // Spawn honey droplets
                 if (millis() - lastDropletSpawn > 2000) {
                     spawnDroplet();
                     lastDropletSpawn = millis();
                 }
-
-                // Spawn bees (up to 5)
                 if (bees.length < 5 && millis() > nextBeeSpawnTime) {
                     spawnBee();
                     lastBeeSpawn = millis();
                     nextBeeSpawnTime = millis() + (bees.length < 5 ? 10000 : 3000);
                 }
-
-                // Update and draw honey droplets
                 for (let i = droplets.length - 1; i >= 0; i--) {
                     let d = droplets[i];
                     d.x += d.vx;
                     d.y += d.vy;
-                    // Draw droplet (image or fallback shape)
                     if (dropletImg && dropletImg.width > 0) {
                         image(dropletImg, d.x, d.y, 20, 20);
                     } else {
@@ -164,21 +234,15 @@
                         bezierVertex(d.x + 5, d.y + 15, d.x + 5, d.y + 5, d.x + 10, d.y);
                         endShape(CLOSE);
                     }
-
-                    // Check collision with jar
                     if (collides(jar, d)) {
                         score += 10;
                         droplets.splice(i, 1);
                         continue;
                     }
-                    // Remove if off-screen
                     if (d.y > height) droplets.splice(i, 1);
                 }
-
-                // Update and draw bees
                 for (let i = bees.length - 1; i >= 0; i--) {
                     let b = bees[i];
-                    // Update speed phase
                     if (bees.length === 5) {
                         if (i === fastBeeIndex) {
                             if (millis() - b.phaseStart > b.phaseDuration) {
@@ -206,8 +270,6 @@
                             b.phaseDuration = b.phase === 'slow' ? 3000 : 1000;
                         }
                     }
-
-                    // Set velocity based on phase
                     if (b.phase === 'slow') {
                         let speed = random(1, 2);
                         let angle = random(TWO_PI);
@@ -231,11 +293,8 @@
                             b.vy = 0;
                         }
                     }
-
                     b.x += b.vx;
                     b.y += b.vy;
-
-                    // Draw bee (image or fallback)
                     if (beeImg && beeImg.width > 0) {
                         image(beeImg, b.x, b.y, 30, 30);
                     } else {
@@ -254,8 +313,6 @@
                         line(b.x + 10, b.y + 5, b.x + 20, b.y + 5);
                         line(b.x + 10, b.y + 15, b.x + 20, b.y + 15);
                     }
-
-                    // Check collision with jar
                     if (collides(jar, b)) {
                         lives -= 1;
                         bees.splice(i, 1);
@@ -263,24 +320,19 @@
                         updateFastBeeIndex(i);
                         continue;
                     }
-                    // Remove if off-screen
                     if (b.x > width || b.x < -30 || b.y > height || b.y < -30) {
                         bees.splice(i, 1);
                         updateFastBeeIndex(i);
                         continue;
                     }
                 }
-
-                // Update fast bee when five bees are present
                 if (bees.length === 5 && fastBeeIndex >= 0) {
                     let fastBee = bees[fastBeeIndex];
-                    if (fastBee.phase === 'slow' && millis() - fastBee.phaseStart > b.phaseDuration) {
+                    if (fastBee.phase === 'slow' && millis() - fastBee.phaseStart > fastBee.phaseDuration) {
                         updateFastBeeIndex(fastBeeIndex);
                     }
                 }
             }
-
-            // Draw honey jar (image or fallback)
             if (jarImg && jarImg.width > 0) {
                 image(jarImg, jar.x, jar.y, jar.w, jar.h);
             } else {
@@ -290,22 +342,16 @@
                 rect(jar.x, jar.y + 10, jar.w, jar.h - 10);
                 arc(jar.x + jar.w / 2, jar.y + 10, jar.w, 20, PI, TWO_PI);
             }
-
-            // Draw HUD with team-specific color
             textSize(20);
-            fill(team === 'blue' ? [0, 0, 139] : [199, 21, 133]); // Deep blue or deep pink
+            fill(team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
             textAlign(LEFT);
             text(`Score: ${score}`, 10, 30);
             text(`Lives: ${lives}`, 10, 60);
-
-            // Game over screen
+            drawButton(leaderboardButton);
             if (gameOver) {
-                textSize(40);
-                textAlign(CENTER);
-                fill(255, 0, 0);
-                text('Game Over!', width / 2, height / 2);
-                textSize(20);
-                text('Click to Restart', width / 2, height / 2 + 40);
+                gameState = 'saveScore';
+                saveScoreChoice = null;
+                fetchLeaderboard();
             }
         }
 
@@ -318,8 +364,30 @@
             text(btn.text, btn.x + btn.w / 2, btn.y + btn.h / 2);
         }
 
-        function mousePressed() {
-            if (gameState === 'teamSelect') {
+        async function mousePressed() {
+            if (gameState === 'login') {
+                if (isMouseOverButton(walletButton)) {
+                    try {
+                        await window.ethereum.request({ method: 'eth_requestAccounts' });
+                        signer = provider.getSigner();
+                        walletAddress = await signer.getAddress();
+                        console.log('Wallet connected:', walletAddress);
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0xaa36a7' }] // Sepolia chain ID
+                        });
+                        gameState = 'teamSelect';
+                    } catch (error) {
+                        console.error('Wallet connection failed:', error);
+                    }
+                } else if (isMouseOverButton(xButton)) {
+                    xUsername = prompt('Enter X username:'); // Mock X sign-in
+                    if (xUsername) {
+                        console.log('X sign-in:', xUsername);
+                        gameState = 'teamSelect';
+                    }
+                }
+            } else if (gameState === 'teamSelect') {
                 if (isMouseOverButton(pinkButton)) {
                     team = 'pink';
                     introMessage = pinkIntroMessage;
@@ -353,18 +421,79 @@
                 } else if (isMouseOverButton(noButton)) {
                     gameState = 'abandoned';
                 }
-            } else if (gameState === 'game' && gameOver) {
-                score = 0;
-                lives = 3;
-                gameOver = false;
-                droplets = [];
-                bees = [];
-                fastBeeIndex = -1;
-                spawnDroplet();
-                spawnBee();
-                lastDropletSpawn = millis();
-                lastBeeSpawn = millis();
-                nextBeeSpawnTime = millis() + 10000;
+            } else if (gameState === 'saveScore') {
+                if (isMouseOverButton(saveYesButton) && saveScoreChoice === null) {
+                    saveScoreChoice = true;
+                    if (walletAddress) {
+                        try {
+                            let contractWithSigner = contract.connect(signer);
+                            let tx = await contractWithSigner.saveScore(score, team);
+                            await tx.wait();
+                            console.log('Score saved to blockchain');
+                            fetchLeaderboard();
+                        } catch (error) {
+                            console.error('Failed to save score:', error);
+                        }
+                    } else if (xUsername) {
+                        leaderboard.push({ username: xUsername, score, team });
+                        console.log('Score saved locally');
+                    }
+                } else if (isMouseOverButton(saveNoButton) && saveScoreChoice === null) {
+                    saveScoreChoice = false;
+                }
+                if (saveScoreChoice !== null && isMouseOverButton(restartButton)) {
+                    gameState = 'game';
+                    score = 0;
+                    lives = 3;
+                    gameOver = false;
+                    droplets = [];
+                    bees = [];
+                    fastBeeIndex = -1;
+                    spawnDroplet();
+                    spawnBee();
+                    lastDropletSpawn = millis();
+                    lastBeeSpawn = millis();
+                    nextBeeSpawnTime = millis() + 10000;
+                }
+            } else if (gameState === 'game' || gameState === 'leaderboard') {
+                if (isMouseOverButton(leaderboardButton)) {
+                    gameState = 'leaderboard';
+                    fetchLeaderboard();
+                } else if (gameState === 'leaderboard' && isMouseOverButton(restartButton)) {
+                    gameState = 'game';
+                    score = 0;
+                    lives = 3;
+                    gameOver = false;
+                    droplets = [];
+                    bees = [];
+                    fastBeeIndex = -1;
+                    spawnDroplet();
+                    spawnBee();
+                    lastDropletSpawn = millis();
+                    lastBeeSpawn = millis();
+                    nextBeeSpawnTime = millis() + 10000;
+                }
+            }
+        }
+
+        async function fetchLeaderboard() {
+            leaderboard = [];
+            if (walletAddress) {
+                try {
+                    let scores = await contract.getScores();
+                    for (let score of scores) {
+                        leaderboard.push({
+                            address: score.player,
+                            score: parseInt(score.score),
+                            team: score.team
+                        });
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch leaderboard:', error);
+                }
+            }
+            if (xUsername) {
+                // Merge local scores (already in leaderboard array)
             }
         }
 

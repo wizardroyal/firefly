@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firefly Catch</title>
+    <title>Honey Catch</title>
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; }
         canvas { display: block; }
@@ -12,128 +12,180 @@
 </head>
 <body>
     <script>
-        let net, fireflies = [], moths = [];
+        let jar, droplets = [], bees = [];
         let score = 0, lives = 3, gameOver = false;
-        let lastFireflySpawn = 0, lastMothSpawn = 0, nextMothSpawnTime = 0;
-        let fastMothIndex = -1; // Tracks which moth is fast when 3 are present
+        let lastDropletSpawn = 0, lastBeeSpawn = 0, nextBeeSpawnTime = 0;
+        let fastBeeIndex = -1; // Tracks which bee is fast (dash or hunt) when 5 are present
 
         function setup() {
             createCanvas(800, 600);
-            net = { x: width / 2, y: height / 2, w: 50, h: 50 }; // Start net in center
-            spawnFirefly();
-            spawnMoth(); // Start with one moth
-            nextMothSpawnTime = millis() + 10000; // Next moth in 10 seconds
+            jar = { x: width / 2, y: height / 2, w: 50, h: 50 }; // Start jar in center
+            spawnDroplet();
+            spawnBee(); // Start with one bee
+            nextBeeSpawnTime = millis() + 10000; // Next bee in 10 seconds
         }
 
         function draw() {
-            console.log('Fireflies:', fireflies.length, 'Moths:', moths.length, 'Net X:', net.x, 'Net Y:', net.y, 'Fast Moth:', fastMothIndex);
-            background(0, 0, 50); // Dark blue starry night
+            console.log('Droplets:', droplets.length, 'Bees:', bees.length, 'Jar X:', jar.x, 'Jar Y:', jar.y, 'Fast Bee:', fastBeeIndex);
+            // Draw meadow gradient background
+            for (let y = 0; y < height; y++) {
+                let c = lerpColor(color(100, 150, 255), color(50, 100, 50), y / height);
+                stroke(c);
+                line(0, y, width, y);
+            }
 
-            // Update net position if mouse is pressed (dragging)
+            // Update jar position if mouse is pressed (dragging)
             if (mouseIsPressed && !gameOver) {
-                net.x = constrain(mouseX - net.w / 2, 0, width - net.w);
-                net.y = constrain(mouseY - net.h / 2, 0, height - net.h);
+                jar.x = constrain(mouseX - jar.w / 2, 0, width - jar.w);
+                jar.y = constrain(mouseY - jar.h / 2, 0, height - jar.h);
             }
 
             if (!gameOver) {
-                // Spawn fireflies
-                if (millis() - lastFireflySpawn > 2000) {
-                    spawnFirefly();
-                    lastFireflySpawn = millis();
+                // Spawn honey droplets
+                if (millis() - lastDropletSpawn > 2000) {
+                    spawnDroplet();
+                    lastDropletSpawn = millis();
                 }
 
-                // Spawn moths (up to 3)
-                if (moths.length < 3 && millis() > nextMothSpawnTime) {
-                    spawnMoth();
-                    lastMothSpawn = millis();
-                    nextMothSpawnTime = millis() + (moths.length < 3 ? 10000 : 3000); // 10s for new moth, 3s for replacement
+                // Spawn bees (up to 5)
+                if (bees.length < 5 && millis() > nextBeeSpawnTime) {
+                    spawnBee();
+                    lastBeeSpawn = millis();
+                    nextBeeSpawnTime = millis() + (bees.length < 5 ? 10000 : 3000); // 10s for new bee, 3s for replacement
                 }
 
-                // Update and draw fireflies
-                for (let i = fireflies.length - 1; i >= 0; i--) {
-                    let f = fireflies[i];
-                    f.x += f.vx;
-                    f.y += f.vy;
-                    fill(0, 255, 0); // Green for fireflies
-                    ellipse(f.x + 10, f.y + 10, 20, 20);
+                // Update and draw honey droplets
+                for (let i = droplets.length - 1; i >= 0; i--) {
+                    let d = droplets[i];
+                    d.x += d.vx;
+                    d.y += d.vy;
+                    fill(255, 200, 0); // Yellow-orange for droplets
+                    noStroke();
+                    beginShape();
+                    vertex(d.x + 10, d.y); // Top
+                    bezierVertex(d.x + 15, d.y + 5, d.x + 15, d.y + 15, d.x + 10, d.y + 20); // Right curve
+                    bezierVertex(d.x + 5, d.y + 15, d.x + 5, d.y + 5, d.x + 10, d.y); // Left curve
+                    endShape(CLOSE);
 
-                    // Check collision with net
-                    if (collides(net, f)) {
+                    // Check collision with jar
+                    if (collides(jar, d)) {
                         score += 10;
-                        fireflies.splice(i, 1);
+                        droplets.splice(i, 1);
                         continue;
                     }
                     // Remove if off-screen
-                    if (f.y > height) fireflies.splice(i, 1);
+                    if (d.y > height) droplets.splice(i, 1);
                 }
 
-                // Update and draw moths
-                for (let i = moths.length - 1; i >= 0; i--) {
-                    let m = moths[i];
+                // Update and draw bees
+                for (let i = bees.length - 1; i >= 0; i--) {
+                    let b = bees[i];
                     // Update speed phase
-                    if (moths.length === 3) {
-                        // Only one moth is fast
-                        if (i === fastMothIndex) {
-                            m.phase = 'dash';
+                    if (bees.length === 5) {
+                        // Only one bee is fast (dash or hunt)
+                        if (i === fastBeeIndex) {
+                            // Follow phase cycle
+                            if (millis() - b.phaseStart > b.phaseDuration) {
+                                if (b.phase === 'slow') {
+                                    b.phase = b.phaseCycleIndex % 2 === 0 ? 'dash' : 'hunt';
+                                    b.phaseCycleIndex++;
+                                } else {
+                                    b.phase = 'slow';
+                                }
+                                b.phaseStart = millis();
+                                b.phaseDuration = b.phase === 'slow' ? 3000 : 1000; // 3s slow, 1s dash/hunt
+                            }
                         } else {
-                            m.phase = 'slow';
+                            b.phase = 'slow'; // Others are slow
                         }
                     } else {
                         // Cycle phases normally
-                        if (millis() - m.phaseStart > m.phaseDuration) {
-                            m.phase = m.phase === 'slow' ? 'dash' : 'slow';
-                            m.phaseStart = millis();
-                            m.phaseDuration = m.phase === 'slow' ? 3000 : 1000; // 3s slow, 1s dash
+                        if (millis() - b.phaseStart > b.phaseDuration) {
+                            if (b.phase === 'slow') {
+                                b.phase = b.phaseCycleIndex % 2 === 0 ? 'dash' : 'hunt';
+                                b.phaseCycleIndex++;
+                            } else {
+                                b.phase = 'slow';
+                            }
+                            b.phaseStart = millis();
+                            b.phaseDuration = b.phase === 'slow' ? 3000 : 1000; // 3s slow, 1s dash/hunt
                         }
                     }
 
                     // Set velocity based on phase
-                    if (m.phase === 'slow') {
+                    if (b.phase === 'slow') {
                         let speed = random(1, 2);
                         let angle = random(TWO_PI);
-                        m.vx = speed * cos(angle);
-                        m.vy = speed * sin(angle);
-                    } else {
+                        b.vx = speed * cos(angle);
+                        b.vy = speed * sin(angle);
+                    } else if (b.phase === 'dash') {
                         let speed = random(5, 7);
                         let angle = random(TWO_PI);
-                        m.vx = speed * cos(angle);
-                        m.vy = speed * sin(angle);
+                        b.vx = speed * cos(angle);
+                        b.vy = speed * sin(angle);
+                    } else { // hunt
+                        let speed = random(7, 9);
+                        let dx = (jar.x + jar.w / 2) - (b.x + b.w / 2);
+                        let dy = (jar.y + jar.h / 2) - (b.y + b.h / 2);
+                        let mag = sqrt(dx * dx + dy * dy);
+                        if (mag > 0) {
+                            b.vx = (dx / mag) * speed;
+                            b.vy = (dy / mag) * speed;
+                        } else {
+                            b.vx = speed;
+                            b.vy = 0;
+                        }
                     }
 
-                    m.x += m.vx;
-                    m.y += m.vy;
+                    b.x += b.vx;
+                    b.y += b.vy;
 
-                    fill(128); // Gray for moths
-                    rect(m.x, m.y, 30, 30);
+                    // Draw bee (yellow-black hexagon)
+                    fill(255, 204, 0); // Yellow
+                    noStroke();
+                    beginShape();
+                    for (let a = 0; a < TWO_PI; a += TWO_PI / 6) {
+                        let x = b.x + 15 + cos(a) * 15;
+                        let y = b.y + 15 + sin(a) * 15;
+                        vertex(x, y);
+                    }
+                    endShape(CLOSE);
+                    // Black stripes
+                    stroke(0);
+                    strokeWeight(2);
+                    line(b.x + 10, b.y + 5, b.x + 20, b.y + 5);
+                    line(b.x + 10, b.y + 15, b.x + 20, b.y + 15);
 
-                    // Check collision with net
-                    if (collides(net, m)) {
+                    // Check collision with jar
+                    if (collides(jar, b)) {
                         lives -= 1;
-                        moths.splice(i, 1);
+                        bees.splice(i, 1);
                         if (lives <= 0) gameOver = true;
-                        updateFastMothIndex(i);
+                        updateFastBeeIndex(i);
                         continue;
                     }
                     // Remove if off-screen
-                    if (m.x > width || m.x < -30 || m.y > height || m.y < -30) {
-                        moths.splice(i, 1);
-                        updateFastMothIndex(i);
+                    if (b.x > width || b.x < -30 || b.y > height || b.y < -30) {
+                        bees.splice(i, 1);
+                        updateFastBeeIndex(i);
                         continue;
                     }
                 }
 
-                // Update fast moth when three moths are present
-                if (moths.length === 3 && fastMothIndex >= 0) {
-                    let fastMoth = moths[fastMothIndex];
-                    if (fastMoth.phase === 'slow' && millis() - fastMoth.phaseStart > fastMoth.phaseDuration) {
-                        updateFastMothIndex(fastMothIndex); // Reassign fast moth
+                // Update fast bee when five bees are present
+                if (bees.length === 5 && fastBeeIndex >= 0) {
+                    let fastBee = bees[fastBeeIndex];
+                    if (fastBee.phase === 'slow' && millis() - fastBee.phaseStart > fastBee.phaseDuration) {
+                        updateFastBeeIndex(fastBeeIndex); // Reassign fast bee
                     }
                 }
             }
 
-            // Draw net
-            fill(0, 0, 255); // Blue for net
-            rect(net.x, net.y, net.w, net.h);
+            // Draw honey jar
+            fill(200, 150, 0); // Golden-brown
+            noStroke();
+            rect(jar.x, jar.y + 10, jar.w, jar.h - 10); // Jar body
+            arc(jar.x + jar.w / 2, jar.y + 10, jar.w, 20, PI, TWO_PI); // Curved top
 
             // Draw HUD
             textSize(20);
@@ -153,14 +205,14 @@
             }
         }
 
-        function spawnFirefly() {
+        function spawnDroplet() {
             let x = random(0, width);
             let vx = random(-1, 1);
             let vy = random(0.5, 2);
-            fireflies.push({ x, y: 0, vx, vy, w: 20, h: 20 });
+            droplets.push({ x, y: 0, vx, vy, w: 20, h: 20 });
         }
 
-        function spawnMoth() {
+        function spawnBee() {
             let x = random(0, width);
             let y = random(0, height);
             let phase = 'slow';
@@ -170,19 +222,20 @@
             let vy = speed * sin(angle);
             let phaseStart = millis();
             let phaseDuration = 3000; // Start with 3s slow
-            moths.push({ x, y, vx, vy, w: 30, h: 30, phase, phaseStart, phaseDuration });
-            if (moths.length === 3 && fastMothIndex === -1) {
-                fastMothIndex = moths.length - 1; // New moth is fast
+            let phaseCycleIndex = 0; // Tracks cycle for dash/hunt alternation
+            bees.push({ x, y, vx, vy, w: 30, h: 30, phase, phaseStart, phaseDuration, phaseCycleIndex });
+            if (bees.length === 5 && fastBeeIndex === -1) {
+                fastBeeIndex = bees.length - 1; // New bee is fast
             }
         }
 
-        function updateFastMothIndex(removedIndex) {
-            if (moths.length < 3) {
-                fastMothIndex = -1; // Reset if fewer than 3 moths
-            } else if (fastMothIndex === removedIndex) {
-                fastMothIndex = floor(random(moths.length)); // Randomly pick a new fast moth
-            } else if (fastMothIndex > removedIndex) {
-                fastMothIndex--; // Adjust index if higher moths shift down
+        function updateFastBeeIndex(removedIndex) {
+            if (bees.length < 5) {
+                fastBeeIndex = -1;
+            } else if (fastBeeIndex === removedIndex) {
+                fastBeeIndex = floor(random(bees.length));
+            } else if (fastBeeIndex > removedIndex) {
+                fastBeeIndex--;
             }
         }
 
@@ -195,14 +248,14 @@
                 score = 0;
                 lives = 3;
                 gameOver = false;
-                fireflies = [];
-                moths = [];
-                fastMothIndex = -1;
-                spawnFirefly();
-                spawnMoth();
-                lastFireflySpawn = millis();
-                lastMothSpawn = millis();
-                nextMothSpawnTime = millis() + 10000;
+                droplets = [];
+                bees = [];
+                fastBeeIndex = -1;
+                spawnDroplet();
+                spawnBee();
+                lastDropletSpawn = millis();
+                lastBeeSpawn = millis();
+                nextBeeSpawnTime = millis() + 10000;
             }
         }
     </script>

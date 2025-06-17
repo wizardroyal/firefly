@@ -12,18 +12,9 @@
 </head>
 <body>
     <script>
-        let backgroundImg, jarImg, fireflyImg, mothImg;
         let jar, fireflies = [], moths = [];
         let score = 0, lives = 3, gameOver = false;
         let lastFireflySpawn = 0, lastMothSpawn = 0;
-
-        function preload() {
-            // Placeholder base64 images (replace with real base64-encoded PNGs)
-            backgroundImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8TAwPCfgQEAUCMBRvBdt9IAAAAASUVORK5CYII=');
-            jarImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNg+M/AwPCfgYGBgYGBASwRBgZc9vIAAAAASUVORK5CYII=');
-            fireflyImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mP8z8DAwPCfgYGBgYGBATARBgaA3PQAAAAASUVORK5CYII=');
-            mothImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8DAwPCfgQEAVCMBRnBdt9IAAAAASUVORK5CYII=');
-        }
 
         function setup() {
             createCanvas(800, 600);
@@ -32,7 +23,8 @@
         }
 
         function draw() {
-            image(backgroundImg, 0, 0, width, height);
+            console.log('Fireflies:', fireflies.length, 'Moths:', moths.length, 'Jar X:', jar.x);
+            background(0, 0, 50); // Dark blue starry night
 
             // Update jar position
             jar.x = constrain(mouseX - jar.w / 2, 0, width - jar.w);
@@ -53,7 +45,8 @@
                     let f = fireflies[i];
                     f.x += f.vx;
                     f.y += f.vy;
-                    image(fireflyImg, f.x, f.y, 20, 20);
+                    fill(0, 255, 0); // Green for fireflies
+                    ellipse(f.x + 10, f.y + 10, 20, 20);
 
                     // Check collision with jar
                     if (collides(jar, f)) {
@@ -69,7 +62,8 @@
                 for (let i = moths.length - 1; i >= 0; i--) {
                     let m = moths[i];
                     m.x += m.vx;
-                    image(mothImg, m.x, m.y, 30, 30);
+                    fill(128); // Gray for moths
+                    rect(m.x, m.y, 30, 30);
 
                     // Check collision with jar
                     if (collides(jar, m)) {
@@ -84,7 +78,8 @@
             }
 
             // Draw jar
-            image(jarImg, jar.x, jar.y, jar.w, jar.h);
+            fill(0, 0, 255); // Blue for jar
+            rect(jar.x, jar.y, jar.w, jar.h);
 
             // Draw HUD
             textSize(20);

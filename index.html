@@ -92,8 +92,9 @@
                 // Update fade-in for current line
                 if (lineIndex < introMessage.length) {
                     let elapsed = millis() - lineStartTime;
-                    lineAlpha = lerp(0, 255, elapsed / 1000); // 1s fade-in
-                    if (elapsed > 1000) {
+                    if (elapsed <= 2000) { // 2s fade-in
+                        lineAlpha = lerp(0, 255, elapsed / 2000);
+                    } else if (elapsed > 2500) { // 2s fade + 0.5s delay
                         lineIndex++;
                         lineAlpha = 0;
                         lineStartTime = millis();

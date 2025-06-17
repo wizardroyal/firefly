@@ -20,6 +20,8 @@
         let lastDropletSpawn = 0, lastBeeSpawn = 0, nextBeeSpawnTime = 0;
         let fastBeeIndex = -1;
         let beeImg, jarImg;
+        let pinkBeeImg, pinkJarImg, blueBeeImg, blueJarImg;
+        let imagesLoaded = false;
 
         // Intro message
         const introMessage = [
@@ -38,24 +40,24 @@
         let startButton = { x: 350, y: 500, w: 100, h: 50, color: [128, 128, 128], text: 'Start' };
 
         function preload() {
-            // Placeholder base64 images (replace with real ones from GitHub)
-            // Blue Team: pfly.png for bees, blue.png for jar
-            // Pink Team: bfly.png for bees, pink.png for jar
-            // Download from https://github.com/wizardroyal/firefly/blob/main/
-            // Convert to base64 using base64-image.de
-            // Example: beeImg = loadImage('data:image/png;base64,...');
-            beeImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8DAwPCfgQEAVCMBRnBdt9IAAAAASUVORK5CYII=');
-            jarImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNg+M/AwPCfgYGBgYGBASwRBgZc9vIAAAAASUVORK5CYII=');
+            // Load all images at start using raw GitHub URLs
+            console.log('Preloading images...');
+            pinkBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/bfly.png');
+            pinkJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pink.png');
+            blueBeeImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/pfly.png');
+            blueJarImg = loadImage('https://raw.githubusercontent.com/wizardroyal/firefly/main/blue.png');
         }
 
         function setup() {
             createCanvas(800, 600);
+            // Check if images loaded successfully
+            imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0;
+            console.log('Images loaded:', imagesLoaded);
         }
 
         function draw() {
             if (gameState === 'intro') {
                 background(0);
-                // Draw scrolling message
                 textSize(24);
                 fill(255);
                 textAlign(CENTER);
@@ -66,8 +68,6 @@
                 if (messageOffset > introMessage.length * 40 + 300) {
                     messageOffset = 0;
                 }
-
-                // Draw YES/NO buttons
                 drawButton(yesButton);
                 drawButton(noButton);
             } else if (gameState === 'teamSelect') {
@@ -82,6 +82,9 @@
                     drawButton(startButton);
                 }
             } else if (gameState === 'game') {
+                if (!imagesLoaded) {
+                    console.log('Images not loaded, using shapes as fallback');
+                }
                 drawGame();
             }
         }
@@ -198,8 +201,25 @@
                     b.x += b.vx;
                     b.y += b.vy;
 
-                    // Draw bee (image)
-                    image(beeImg, b.x, b.y, 30, 30);
+                    // Draw bee (image or fallback shape)
+                    if (beeImg && beeImg.width > 0) {
+                        image(beeImg, b.x, b.y, 30, 30);
+                    } else {
+                        console.log('Bee image not loaded, using fallback');
+                        fill(255, 204, 0);
+                        noStroke();
+                        beginShape();
+                        for (let a = 0; a < TWO_PI; a += TWO_PI / 6) {
+                            let x = b.x + 15 + cos(a) * 15;
+                            let y = b.y + 15 + sin(a) * 15;
+                            vertex(x, y);
+                        }
+                        endShape(CLOSE);
+                        stroke(0);
+                        strokeWeight(2);
+                        line(b.x + 10, b.y + 5, b.x + 20, b.y + 5);
+                        line(b.x + 10, b.y + 15, b.x + 20, b.y + 15);
+                    }
 
                     // Check collision with jar
                     if (collides(jar, b)) {
@@ -226,8 +246,16 @@
                 }
             }
 
-            // Draw honey jar
-            image(jarImg, jar.x, jar.y, jar.w, jar.h);
+            // Draw honey jar (image or fallback shape)
+            if (jarImg && jarImg.width > 0) {
+                image(jarImg, jar.x, jar.y, jar.w, jar.h);
+            } else {
+                console.log('Jar image not loaded, using fallback');
+                fill(200, 150, 0);
+                noStroke();
+                rect(jar.x, jar.y + 10, jar.w, jar.h - 10);
+                arc(jar.x + jar.w / 2, jar.y + 10, jar.w, 20, PI, TWO_PI);
+            }
 
             // Draw HUD
             textSize(20);
@@ -271,14 +299,14 @@
             } else if (gameState === 'teamSelect') {
                 if (isMouseOverButton(pinkButton)) {
                     team = 'pink';
-                    // Load pink images
-                    beeImg = loadImage('/bfly.png'); // Replace with bfly.png base64
-                    jarImg = loadImage('/pink.png'); // Replace with pink.png base64
+                    console.log('Selected Pink team');
+                    beeImg = pinkBeeImg;
+                    jarImg = pinkJarImg;
                 } else if (isMouseOverButton(blueButton)) {
                     team = 'blue';
-                    // Load blue images
-                    beeImg = loadImage('/pfly.png'); // Replace with pfly.png base64
-                    jarImg = loadImage('/blue'); // Replace with blue.png base64
+                    console.log('Selected Blue team');
+                    beeImg = blueBeeImg;
+                    jarImg = blueJarImg;
                 } else if (team && isMouseOverButton(startButton)) {
                     gameState = 'game';
                     jar = { x: width / 2, y: height / 2, w: 50, h: 50 };

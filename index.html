@@ -14,7 +14,7 @@
 </head>
 <body>
     <script>
-        let gameState = 'login'; // login, teamSelect, intro, game, abandoned, leaderboard, saveScore
+        let gameState = 'teamSelect'; // teamSelect, intro, login, game, abandoned, leaderboard, saveScore, highScore
         let team = null; // 'pink' or 'blue'
         let jar, droplets = [], bees = [];
         let score = 0, lives = 3, gameOver = false;
@@ -24,10 +24,12 @@
         let pinkBeeImg, pinkJarImg, blueBeeImg, blueJarImg;
         let imagesLoaded = false;
         let walletAddress = null;
-        let xUsername = null;
+        let username = null;
         let provider, signer, contract;
         let leaderboard = [];
+        let highScores = [];
         let saveScoreChoice = null;
+        let scrollOffset = 0;
 
         // Intro animation variables
         let introMessage = [];
@@ -35,6 +37,7 @@
         let lineAlpha = 0;
         let lineStartTime = 0;
         let showButtons = false;
+        let isWalletConnected = false;
 
         // Intro messages
         const blueIntroMessage = [
@@ -51,18 +54,20 @@
         ];
 
         // Buttons
-        let walletButton = { x: 300, y: 350, w: 200, h: 50, color: [100, 100, 255], text: 'Connect Wallet' };
-        let xButton = { x: 300, y: 420, w: 200, h: 50, color: [255, 100, 100], text: 'Sign in with X' };
+        let walletButton = { x: 300, y: 350, w: 200, h: 50, color: [100, 100, 255], text: 'Sign in with Wallet' };
+        let usernameButton = { x: 300, y: 420, w: 200, h: 50, color: [255, 100, 100], text: 'Enter Username' };
+        let startGameButton = { x: 300, y: 300, w: 200, h: 50, color: [128, 128, 128], text: 'Start Game' };
         let yesButton = { x: 300, y: 450, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
         let noButton = { x: 400, y: 450, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
-        let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [199, 21, 133], text: 'PINK' }; // Deep pink #C71585
+        let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [199, 21, 133], text: 'PINK' };
         let blueButton = { x: 400, y: 400, w: 100, h: 50, color: [0, 0, 255], text: 'BLUE' };
-        let leaderboardButton = { x: 700, y: 10, w: 80, h: 30, color: [128, 128, 128], text: 'Leaderboard' };
+        let leaderboardButton = { x: 620, y: 10, w: 80, h: 30, color: [128, 128, 128], text: 'Leaderboard' };
+        let highScoreButton = { x: 710, y: 10, w: 80, h: 30, color: [128, 128, 128], text: 'High Score' };
         let saveYesButton = { x: 300, y: 400, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
         let saveNoButton = { x: 400, y: 400, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
         let restartButton = { x: 350, y: 480, w: 100, h: 50, color: [0, 128, 0], text: 'Restart' };
 
-        // Smart contract ABI (simplified)
+        // Smart contract ABI
         const contractABI = [
             {
                 "inputs": [
@@ -91,9 +96,27 @@
                 ],
                 "stateMutability": "view",
                 "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "_player", "type": "address"}],
+                "name": "getPlayerScores",
+                "outputs": [
+                    {
+                        "components": [
+                            {"internalType": "address", "name": "player", "type": "address"},
+                            {"internalType": "uint256", "name": "score", "type": "uint256"},
+                            {"internalType": "string", "name": "team", "type": "string"}
+                        ],
+                        "internalType": "struct HoneyCatchLeaderboard.Score[]",
+                        "name": "",
+                        "type": "tuple[]"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
             }
         ];
-        const contractAddress = 'YOUR_CONTRACT_ADDRESS'; // Deploy on Sepolia and replace
+        const contractAddress = 'YOUR_CONTRACT_ADDRESS'; // Replace after deploying on Sepolia
 
         function preload() {
             console.log('Preloading images...');
@@ -109,27 +132,27 @@
             textFont('Lobster');
             imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0 && dropletImg.width > 0;
             console.log('Images loaded:', imagesLoaded);
-            // Initialize ethers.js
             if (typeof window.ethereum !== 'undefined') {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 contract = new ethers.Contract(contractAddress, contractABI, provider);
             }
+            // Load local high scores
+            loadLocalHighScores();
         }
 
         function draw() {
-            if (gameState === 'login') {
+            if (gameState === 'teamSelect') {
                 background(255, 240, 245); // Whitish pink
-                textSize(32);
-                fill(51, 51, 51);
+                // Draw header
+                textSize(48);
+                fill(199, 21, 133); // Deep pink
+                stroke(128, 128, 128); // Gray outline
+                strokeWeight(2);
                 textAlign(CENTER);
-                text('Sign in to play', width / 2, 300);
-                drawButton(walletButton);
-                drawButton(xButton);
-            } else if (gameState === 'teamSelect') {
-                background(255, 240, 245);
+                text('Saving Succinct Summer', width / 2, 100);
+                noStroke();
                 textSize(32);
-                fill(51, 51, 51);
-                textAlign(CENTER);
+                fill(51, 51, 51); // Dark gray
                 text('Choose your team', width / 2, 300);
                 drawButton(pinkButton);
                 drawButton(blueButton);
@@ -160,6 +183,17 @@
                     drawButton(yesButton);
                     drawButton(noButton);
                 }
+            } else if (gameState === 'login') {
+                background(255, 240, 245);
+                if (walletAddress || username) {
+                    drawButton(startGameButton);
+                }
+                drawButton(walletButton);
+                drawButton(usernameButton);
+                textSize(20);
+                fill(51, 51, 51);
+                textAlign(CENTER);
+                text('please sign in with burner wallet', width / 2, 480);
             } else if (gameState === 'game') {
                 if (!imagesLoaded) {
                     console.log('Images not loaded, using shapes as fallback');
@@ -185,17 +219,39 @@
                 }
             } else if (gameState === 'leaderboard') {
                 background(255, 240, 245);
+                // Draw green boundary box
+                fill(0, 128, 0); // Green
+                rect(180, 80, 440, 360);
                 textSize(32);
                 fill(51, 51, 51);
                 textAlign(CENTER);
-                text('Leaderboard', width / 2, 100);
+                text('Leaderboard', width / 2, 120);
                 textSize(20);
                 textAlign(LEFT);
                 leaderboard.sort((a, b) => b.score - a.score);
                 for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
                     fill(leaderboard[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
-                    let id = leaderboard[i].address || leaderboard[i].username;
-                    text(`${i + 1}. ${id.slice(0, 6)}...${id.slice(-4)}: ${leaderboard[i].score}`, 200, 150 + i * 30);
+                    let id = leaderboard[i].address ? leaderboard[i].address.slice(0, 12) + '...' : leaderboard[i].username.slice(0, 12);
+                    text(`${i + 1}. ${id}: ${leaderboard[i].score}`, 200, 160 + i * 30);
+                }
+                drawButton(restartButton);
+            } else if (gameState === 'highScore') {
+                background(255, 240, 245);
+                // Draw gray boundary box
+                fill(128, 128, 128); // Gray
+                rect(180, 80, 440, 360);
+                textSize(32);
+                fill(51, 51, 51);
+                textAlign(CENTER);
+                text('Your High Scores', width / 2, 120);
+                textSize(20);
+                textAlign(LEFT);
+                highScores.sort((a, b) => b.score - a.score);
+                let startIdx = floor(scrollOffset / 30);
+                for (let i = startIdx; i < Math.min(startIdx + 12, highScores.length); i++) {
+                    fill(highScores[i].team === 'blue' ? [0, 0, 139] : [199, 21, 133]);
+                    let id = highScores[i].address ? highScores[i].address.slice(0, 12) + '...' : highScores[i].username.slice(0, 12);
+                    text(`${i + 1}. ${id}: ${highScores[i].score}`, 200, 160 + (i - startIdx) * 30);
                 }
                 drawButton(restartButton);
             }
@@ -203,7 +259,7 @@
 
         function drawGame() {
             console.log('Droplets:', droplets.length, 'Bees:', bees.length, 'Jar X:', jar.x, 'Jar Y:', jar.y, 'Fast Bee:', fastBeeIndex);
-            background(245, 230, 199); // Beige
+            background(245, 230, 199);
             if (mouseIsPressed && !gameOver) {
                 jar.x = constrain(mouseX - jar.w / 2, 0, width - jar.w);
                 jar.y = constrain(mouseY - jar.h / 2, 0, height - jar.h);
@@ -348,6 +404,7 @@
             text(`Score: ${score}`, 10, 30);
             text(`Lives: ${lives}`, 10, 60);
             drawButton(leaderboardButton);
+            drawButton(highScoreButton);
             if (gameOver) {
                 gameState = 'saveScore';
                 saveScoreChoice = null;
@@ -355,39 +412,8 @@
             }
         }
 
-        function drawButton(btn) {
-            fill(btn.color);
-            rect(btn.x, btn.y, btn.w, btn.h);
-            fill(0);
-            textSize(20);
-            textAlign(CENTER, CENTER);
-            text(btn.text, btn.x + btn.w / 2, btn.y + btn.h / 2);
-        }
-
         async function mousePressed() {
-            if (gameState === 'login') {
-                if (isMouseOverButton(walletButton)) {
-                    try {
-                        await window.ethereum.request({ method: 'eth_requestAccounts' });
-                        signer = provider.getSigner();
-                        walletAddress = await signer.getAddress();
-                        console.log('Wallet connected:', walletAddress);
-                        await window.ethereum.request({
-                            method: 'wallet_switchEthereumChain',
-                            params: [{ chainId: '0xaa36a7' }] // Sepolia chain ID
-                        });
-                        gameState = 'teamSelect';
-                    } catch (error) {
-                        console.error('Wallet connection failed:', error);
-                    }
-                } else if (isMouseOverButton(xButton)) {
-                    xUsername = prompt('Enter X username:'); // Mock X sign-in
-                    if (xUsername) {
-                        console.log('X sign-in:', xUsername);
-                        gameState = 'teamSelect';
-                    }
-                }
-            } else if (gameState === 'teamSelect') {
+            if (gameState === 'teamSelect') {
                 if (isMouseOverButton(pinkButton)) {
                     team = 'pink';
                     introMessage = pinkIntroMessage;
@@ -413,13 +439,54 @@
                 }
             } else if (gameState === 'intro' && showButtons) {
                 if (isMouseOverButton(yesButton)) {
+                    gameState = 'login';
+                } else if (isMouseOverButton(noButton)) {
+                    gameState = 'abandoned';
+                }
+            } else if (gameState === 'login') {
+                if (isMouseOverButton(walletButton)) {
+                    if (!walletAddress) {
+                        try {
+                            await window.ethereum.request({ method: 'eth_requestAccounts' });
+                            signer = provider.getSigner();
+                            walletAddress = await signer.getAddress();
+                            isWalletConnected = true;
+                            walletButton.text = `Connected: ${walletAddress.slice(0, 6)}...`;
+                            console.log('Wallet connected:', walletAddress);
+                            await window.ethereum.request({
+                                method: 'wallet_switchEthereumChain',
+                                params: [{ chainId: '0xaa36a7' }]
+                            });
+                            fetchHighScores();
+                        } catch (error) {
+                            console.error('Wallet connection failed:', error);
+                        }
+                    } else {
+                        walletAddress = null;
+                        isWalletConnected = false;
+                        walletButton.text = 'Sign in with Wallet';
+                        console.log('Wallet disconnected');
+                    }
+                } else if (isMouseOverButton(usernameButton)) {
+                    let newUsername = prompt('Enter your username:');
+                    if (newUsername) {
+                        username = newUsername;
+                        usernameButton.text = username.length > 10 ? username.slice(0, 10) + '...' : username;
+                        console.log('Username set:', username);
+                        fetchHighScores();
+                    }
+                } else if ((walletAddress || username) && isMouseOverButton(startGameButton)) {
                     gameState = 'game';
                     jar = { x: width / 2, y: height / 2, w: 50, h: 50 };
+                    score = 0;
+                    lives = 3;
+                    gameOver = false;
+                    droplets = [];
+                    bees = [];
+                    fastBeeIndex = -1;
                     spawnDroplet();
                     spawnBee();
                     nextBeeSpawnTime = millis() + 10000;
-                } else if (isMouseOverButton(noButton)) {
-                    gameState = 'abandoned';
                 }
             } else if (gameState === 'saveScore') {
                 if (isMouseOverButton(saveYesButton) && saveScoreChoice === null) {
@@ -430,12 +497,16 @@
                             let tx = await contractWithSigner.saveScore(score, team);
                             await tx.wait();
                             console.log('Score saved to blockchain');
+                            highScores.push({ address: walletAddress, score, team });
+                            saveLocalHighScores();
                             fetchLeaderboard();
                         } catch (error) {
                             console.error('Failed to save score:', error);
                         }
-                    } else if (xUsername) {
-                        leaderboard.push({ username: xUsername, score, team });
+                    } else if (username) {
+                        leaderboard.push({ username, score, team });
+                        highScores.push({ username, score, team });
+                        saveLocalHighScores();
                         console.log('Score saved locally');
                     }
                 } else if (isMouseOverButton(saveNoButton) && saveScoreChoice === null) {
@@ -455,11 +526,15 @@
                     lastBeeSpawn = millis();
                     nextBeeSpawnTime = millis() + 10000;
                 }
-            } else if (gameState === 'game' || gameState === 'leaderboard') {
+            } else if (gameState === 'game' || gameState === 'leaderboard' || gameState === 'highScore') {
                 if (isMouseOverButton(leaderboardButton)) {
                     gameState = 'leaderboard';
                     fetchLeaderboard();
-                } else if (gameState === 'leaderboard' && isMouseOverButton(restartButton)) {
+                } else if (isMouseOverButton(highScoreButton)) {
+                    gameState = 'highScore';
+                    scrollOffset = 0;
+                    fetchHighScores();
+                } else if ((gameState === 'leaderboard' || gameState === 'highScore') && isMouseOverButton(restartButton)) {
                     gameState = 'game';
                     score = 0;
                     lives = 3;
@@ -473,6 +548,13 @@
                     lastBeeSpawn = millis();
                     nextBeeSpawnTime = millis() + 10000;
                 }
+            }
+        }
+
+        function mouseWheel(event) {
+            if (gameState === 'highScore') {
+                scrollOffset += event.delta;
+                scrollOffset = constrain(scrollOffset, 0, Math.max(0, highScores.length * 30 - 360));
             }
         }
 
@@ -492,8 +574,46 @@
                     console.error('Failed to fetch leaderboard:', error);
                 }
             }
-            if (xUsername) {
-                // Merge local scores (already in leaderboard array)
+            if (username) {
+                // Merge local scores
+                leaderboard = leaderboard.concat(highScores.filter(s => s.username === username));
+            }
+        }
+
+        async function fetchHighScores() {
+            highScores = [];
+            if (walletAddress) {
+                try {
+                    let scores = await contract.getPlayerScores(walletAddress);
+                    for (let score of scores) {
+                        highScores.push({
+                            address: score.player,
+                            score: parseInt(score.score),
+                            team: score.team
+                        });
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch high scores:', error);
+                }
+            }
+            if (username) {
+                let localScores = JSON.parse(localStorage.getItem(`highScores_${username}`) || '[]');
+                highScores = highScores.concat(localScores);
+            }
+        }
+
+        function saveLocalHighScores() {
+            if (username) {
+                let localScores = highScores.filter(s => s.username === username);
+                localStorage.setItem(`highScores_${username}`, JSON.stringify(localScores));
+            }
+        }
+
+        function loadLocalHighScores() {
+            let keys = Object.keys(localStorage).filter(k => k.startsWith('highScores_'));
+            for (let key of keys) {
+                let scores = JSON.parse(localStorage.getItem(key) || '[]');
+                highScores = highScores.concat(scores);
             }
         }
 

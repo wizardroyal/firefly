@@ -12,20 +12,81 @@
 </head>
 <body>
     <script>
+        let gameState = 'intro'; // intro, teamSelect, game
+        let messageOffset = 0;
+        let team = null; // 'pink' or 'blue'
         let jar, droplets = [], bees = [];
         let score = 0, lives = 3, gameOver = false;
         let lastDropletSpawn = 0, lastBeeSpawn = 0, nextBeeSpawnTime = 0;
-        let fastBeeIndex = -1; // Tracks which bee is fast (dash or hunt) when 5 are present
+        let fastBeeIndex = -1;
+        let beeImg, jarImg;
+
+        // Intro message
+        const introMessage = [
+            "It's Succinct Summer,",
+            "You're on a fierce secret mission,",
+            "But communications were leaked,",
+            "Your enemies know your location,",
+            "Do you have what it takes?"
+        ];
+
+        // Buttons
+        let yesButton = { x: 300, y: 450, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
+        let noButton = { x: 400, y: 450, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
+        let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [255, 192, 203], text: 'PINK' };
+        let blueButton = { x: 400, y: 400, w: 100, h: 50, color: [0, 0, 255], text: 'BLUE' };
+        let startButton = { x: 350, y: 500, w: 100, h: 50, color: [128, 128, 128], text: 'Start' };
+
+        function preload() {
+            // Placeholder base64 images (replace with real ones from GitHub)
+            // Blue Team: pfly.png for bees, blue.png for jar
+            // Pink Team: bfly.png for bees, pink.png for jar
+            // Download from https://github.com/wizardroyal/firefly/blob/main/
+            // Convert to base64 using base64-image.de
+            // Example: beeImg = loadImage('data:image/png;base64,...');
+            beeImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8DAwPCfgQEAVCMBRnBdt9IAAAAASUVORK5CYII=');
+            jarImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNg+M/AwPCfgYGBgYGBASwRBgZc9vIAAAAASUVORK5CYII=');
+        }
 
         function setup() {
             createCanvas(800, 600);
-            jar = { x: width / 2, y: height / 2, w: 50, h: 50 }; // Start jar in center
-            spawnDroplet();
-            spawnBee(); // Start with one bee
-            nextBeeSpawnTime = millis() + 10000; // Next bee in 10 seconds
         }
 
         function draw() {
+            if (gameState === 'intro') {
+                background(0);
+                // Draw scrolling message
+                textSize(24);
+                fill(255);
+                textAlign(CENTER);
+                for (let i = 0; i < introMessage.length; i++) {
+                    text(introMessage[i], width / 2, 200 + i * 40 - messageOffset);
+                }
+                messageOffset += 1;
+                if (messageOffset > introMessage.length * 40 + 300) {
+                    messageOffset = 0;
+                }
+
+                // Draw YES/NO buttons
+                drawButton(yesButton);
+                drawButton(noButton);
+            } else if (gameState === 'teamSelect') {
+                background(0);
+                textSize(32);
+                fill(255);
+                textAlign(CENTER);
+                text('Choose your team', width / 2, 300);
+                drawButton(pinkButton);
+                drawButton(blueButton);
+                if (team) {
+                    drawButton(startButton);
+                }
+            } else if (gameState === 'game') {
+                drawGame();
+            }
+        }
+
+        function drawGame() {
             console.log('Droplets:', droplets.length, 'Bees:', bees.length, 'Jar X:', jar.x, 'Jar Y:', jar.y, 'Fast Bee:', fastBeeIndex);
             // Draw meadow gradient background
             for (let y = 0; y < height; y++) {
@@ -51,7 +112,7 @@
                 if (bees.length < 5 && millis() > nextBeeSpawnTime) {
                     spawnBee();
                     lastBeeSpawn = millis();
-                    nextBeeSpawnTime = millis() + (bees.length < 5 ? 10000 : 3000); // 10s for new bee, 3s for replacement
+                    nextBeeSpawnTime = millis() + (bees.length < 5 ? 10000 : 3000);
                 }
 
                 // Update and draw honey droplets
@@ -59,12 +120,12 @@
                     let d = droplets[i];
                     d.x += d.vx;
                     d.y += d.vy;
-                    fill(255, 200, 0); // Yellow-orange for droplets
+                    fill(255, 200, 0);
                     noStroke();
                     beginShape();
-                    vertex(d.x + 10, d.y); // Top
-                    bezierVertex(d.x + 15, d.y + 5, d.x + 15, d.y + 15, d.x + 10, d.y + 20); // Right curve
-                    bezierVertex(d.x + 5, d.y + 15, d.x + 5, d.y + 5, d.x + 10, d.y); // Left curve
+                    vertex(d.x + 10, d.y);
+                    bezierVertex(d.x + 15, d.y + 5, d.x + 15, d.y + 15, d.x + 10, d.y + 20);
+                    bezierVertex(d.x + 5, d.y + 15, d.x + 5, d.y + 5, d.x + 10, d.y);
                     endShape(CLOSE);
 
                     // Check collision with jar
@@ -82,9 +143,7 @@
                     let b = bees[i];
                     // Update speed phase
                     if (bees.length === 5) {
-                        // Only one bee is fast (dash or hunt)
                         if (i === fastBeeIndex) {
-                            // Follow phase cycle
                             if (millis() - b.phaseStart > b.phaseDuration) {
                                 if (b.phase === 'slow') {
                                     b.phase = b.phaseCycleIndex % 2 === 0 ? 'dash' : 'hunt';
@@ -93,13 +152,12 @@
                                     b.phase = 'slow';
                                 }
                                 b.phaseStart = millis();
-                                b.phaseDuration = b.phase === 'slow' ? 3000 : 1000; // 3s slow, 1s dash/hunt
+                                b.phaseDuration = b.phase === 'slow' ? 3000 : 1000;
                             }
                         } else {
-                            b.phase = 'slow'; // Others are slow
+                            b.phase = 'slow';
                         }
                     } else {
-                        // Cycle phases normally
                         if (millis() - b.phaseStart > b.phaseDuration) {
                             if (b.phase === 'slow') {
                                 b.phase = b.phaseCycleIndex % 2 === 0 ? 'dash' : 'hunt';
@@ -108,7 +166,7 @@
                                 b.phase = 'slow';
                             }
                             b.phaseStart = millis();
-                            b.phaseDuration = b.phase === 'slow' ? 3000 : 1000; // 3s slow, 1s dash/hunt
+                            b.phaseDuration = b.phase === 'slow' ? 3000 : 1000;
                         }
                     }
 
@@ -140,21 +198,8 @@
                     b.x += b.vx;
                     b.y += b.vy;
 
-                    // Draw bee (yellow-black hexagon)
-                    fill(255, 204, 0); // Yellow
-                    noStroke();
-                    beginShape();
-                    for (let a = 0; a < TWO_PI; a += TWO_PI / 6) {
-                        let x = b.x + 15 + cos(a) * 15;
-                        let y = b.y + 15 + sin(a) * 15;
-                        vertex(x, y);
-                    }
-                    endShape(CLOSE);
-                    // Black stripes
-                    stroke(0);
-                    strokeWeight(2);
-                    line(b.x + 10, b.y + 5, b.x + 20, b.y + 5);
-                    line(b.x + 10, b.y + 15, b.x + 20, b.y + 15);
+                    // Draw bee (image)
+                    image(beeImg, b.x, b.y, 30, 30);
 
                     // Check collision with jar
                     if (collides(jar, b)) {
@@ -176,16 +221,13 @@
                 if (bees.length === 5 && fastBeeIndex >= 0) {
                     let fastBee = bees[fastBeeIndex];
                     if (fastBee.phase === 'slow' && millis() - fastBee.phaseStart > fastBee.phaseDuration) {
-                        updateFastBeeIndex(fastBeeIndex); // Reassign fast bee
+                        updateFastBeeIndex(fastBeeIndex);
                     }
                 }
             }
 
             // Draw honey jar
-            fill(200, 150, 0); // Golden-brown
-            noStroke();
-            rect(jar.x, jar.y + 10, jar.w, jar.h - 10); // Jar body
-            arc(jar.x + jar.w / 2, jar.y + 10, jar.w, 20, PI, TWO_PI); // Curved top
+            image(jarImg, jar.x, jar.y, jar.w, jar.h);
 
             // Draw HUD
             textSize(20);
@@ -205,6 +247,64 @@
             }
         }
 
+        function drawButton(btn) {
+            fill(btn.color);
+            rect(btn.x, btn.y, btn.w, btn.h);
+            fill(0);
+            textSize(20);
+            textAlign(CENTER, CENTER);
+            text(btn.text, btn.x + btn.w / 2, btn.y + btn.h / 2);
+        }
+
+        function mousePressed() {
+            if (gameState === 'intro') {
+                if (isMouseOverButton(yesButton)) {
+                    gameState = 'teamSelect';
+                } else if (isMouseOverButton(noButton)) {
+                    background(0);
+                    textSize(40);
+                    fill(255, 0, 0);
+                    textAlign(CENTER);
+                    text('Mission Abandoned', width / 2, height / 2);
+                    gameState = 'abandoned';
+                }
+            } else if (gameState === 'teamSelect') {
+                if (isMouseOverButton(pinkButton)) {
+                    team = 'pink';
+                    // Load pink images
+                    beeImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8DAwPCfgQEAVCMBRnBdt9IAAAAASUVORK5CYII='); // Replace with bfly.png base64
+                    jarImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNg+M/AwPCfgYGBgYGBASwRBgZc9vIAAAAASUVORK5CYII='); // Replace with pink.png base64
+                } else if (isMouseOverButton(blueButton)) {
+                    team = 'blue';
+                    // Load blue images
+                    beeImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNgYGD4z8DAwPCfgQEAVCMBRnBdt9IAAAAASUVORK5CYII='); // Replace with pfly.png base64
+                    jarImg = loadImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAFElEQVR42mNg+M/AwPCfgYGBgYGBASwRBgZc9vIAAAAASUVORK5CYII='); // Replace with blue.png base64
+                } else if (team && isMouseOverButton(startButton)) {
+                    gameState = 'game';
+                    jar = { x: width / 2, y: height / 2, w: 50, h: 50 };
+                    spawnDroplet();
+                    spawnBee();
+                    nextBeeSpawnTime = millis() + 10000;
+                }
+            } else if (gameState === 'game' && gameOver) {
+                score = 0;
+                lives = 3;
+                gameOver = false;
+                droplets = [];
+                bees = [];
+                fastBeeIndex = -1;
+                spawnDroplet();
+                spawnBee();
+                lastDropletSpawn = millis();
+                lastBeeSpawn = millis();
+                nextBeeSpawnTime = millis() + 10000;
+            }
+        }
+
+        function isMouseOverButton(btn) {
+            return mouseX > btn.x && mouseX < btn.x + btn.w && mouseY > btn.y && mouseY < btn.y + btn.h;
+        }
+
         function spawnDroplet() {
             let x = random(0, width);
             let vx = random(-1, 1);
@@ -221,11 +321,11 @@
             let vx = speed * cos(angle);
             let vy = speed * sin(angle);
             let phaseStart = millis();
-            let phaseDuration = 3000; // Start with 3s slow
-            let phaseCycleIndex = 0; // Tracks cycle for dash/hunt alternation
+            let phaseDuration = 3000;
+            let phaseCycleIndex = 0;
             bees.push({ x, y, vx, vy, w: 30, h: 30, phase, phaseStart, phaseDuration, phaseCycleIndex });
             if (bees.length === 5 && fastBeeIndex === -1) {
-                fastBeeIndex = bees.length - 1; // New bee is fast
+                fastBeeIndex = bees.length - 1;
             }
         }
 
@@ -241,22 +341,6 @@
 
         function collides(a, b) {
             return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-        }
-
-        function mousePressed() {
-            if (gameOver) {
-                score = 0;
-                lives = 3;
-                gameOver = false;
-                droplets = [];
-                bees = [];
-                fastBeeIndex = -1;
-                spawnDroplet();
-                spawnBee();
-                lastDropletSpawn = millis();
-                lastBeeSpawn = millis();
-                nextBeeSpawnTime = millis() + 10000;
-            }
         }
     </script>
 </body>

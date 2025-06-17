@@ -8,11 +8,12 @@
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; }
         canvas { display: block; }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
 </head>
 <body>
     <script>
-        let gameState = 'intro'; // intro, teamSelect, game
+        let gameState = 'teamSelect'; // teamSelect, intro, game, chicken
         let messageOffset = 0;
         let team = null; // 'pink' or 'blue'
         let jar, droplets = [], bees = [];
@@ -22,20 +23,27 @@
         let beeImg, jarImg, dropletImg;
         let pinkBeeImg, pinkJarImg, blueBeeImg, blueJarImg;
         let imagesLoaded = false;
+        let introMessage = [];
+        let showButtons = false;
 
-        // Intro message
-        const introMessage = [
+        // Intro messages
+        const blueIntroMessage = [
             "It's Succinct Summer,",
-            "You're on a fierce secret mission,",
-            "But communications were leaked,",
-            "Your enemies know your location,",
+            "But Pink team have stolen the essence of Summer,",
+            "It's up to you oh Blue knight to reclaim it back,",
+            "Do you have what it takes?"
+        ];
+        const pinkIntroMessage = [
+            "It's Succinct Summer,",
+            "But Blue team have stolen the essence of Summer,",
+            "It's up to you oh Pink knight to reclaim it back,",
             "Do you have what it takes?"
         ];
 
         // Buttons
         let yesButton = { x: 300, y: 450, w: 100, h: 50, color: [0, 255, 0], text: 'YES' };
         let noButton = { x: 400, y: 450, w: 100, h: 50, color: [255, 0, 0], text: 'NO' };
-        let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [255, 192, 203], text: 'PINK' };
+        let pinkButton = { x: 300, y: 400, w: 100, h: 50, color: [199, 21, 133], text: 'PINK' }; // Deep pink #C71585
         let blueButton = { x: 400, y: 400, w: 100, h: 50, color: [0, 0, 255], text: 'BLUE' };
         let startButton = { x: 350, y: 500, w: 100, h: 50, color: [128, 128, 128], text: 'Start' };
 
@@ -51,13 +59,22 @@
 
         function setup() {
             createCanvas(800, 600);
+            textFont('Lobster');
             // Check if images loaded successfully
             imagesLoaded = pinkBeeImg.width > 0 && pinkJarImg.width > 0 && blueBeeImg.width > 0 && blueJarImg.width > 0 && dropletImg.width > 0;
             console.log('Images loaded:', imagesLoaded);
         }
 
         function draw() {
-            if (gameState === 'intro') {
+            if (gameState === 'teamSelect') {
+                background(0);
+                textSize(32);
+                fill(255);
+                textAlign(CENTER);
+                text('Choose your team', width / 2, 300);
+                drawButton(pinkButton);
+                drawButton(blueButton);
+            } else if (gameState === 'intro') {
                 background(0);
                 textSize(24);
                 fill(255);
@@ -67,32 +84,29 @@
                 }
                 messageOffset += 1;
                 if (messageOffset > introMessage.length * 40 + 300) {
-                    messageOffset = 0;
+                    showButtons = true;
                 }
-                drawButton(yesButton);
-                drawButton(noButton);
-            } else if (gameState === 'teamSelect') {
-                background(0);
-                textSize(32);
-                fill(255);
-                textAlign(CENTER);
-                text('Choose your team', width / 2, 300);
-                drawButton(pinkButton);
-                drawButton(blueButton);
-                if (team) {
-                    drawButton(startButton);
+                if (showButtons) {
+                    drawButton(yesButton);
+                    drawButton(noButton);
                 }
             } else if (gameState === 'game') {
                 if (!imagesLoaded) {
                     console.log('Images not loaded, using shapes as fallback');
                 }
                 drawGame();
+            } else if (gameState === 'chicken') {
+                background(0);
+                textSize(40);
+                fill(255, 0, 0);
+                textAlign(CENTER);
+                text("You're Chicken!!", width / 2, height / 2);
             }
         }
 
         function drawGame() {
             console.log('Droplets:', droplets.length, 'Bees:', bees.length, 'Jar X:', jar.x, 'Jar Y:', jar.y, 'Fast Bee:', fastBeeIndex);
-            // Draw beige background to accentuate bee/jar colors
+            // Draw beige background
             background(245, 230, 199); // #F5E6C7
 
             // Update jar position if mouse is pressed (dragging)
@@ -196,15 +210,15 @@
                             b.vx = (dx / mag) * speed;
                             b.vy = (dy / mag) * speed;
                         } else {
-                            b.vx = speed;
-                            b.vy = 0;
+                            b.vx = 0;
+                            b.vy = speed;
                         }
                     }
 
                     b.x += b.vx;
                     b.y += b.vy;
 
-                    // Draw bee (image or fallback shape)
+                    // Draw bee (image or fallback)
                     if (beeImg && beeImg.width > 0) {
                         image(beeImg, b.x, b.y, 30, 30);
                     } else {
@@ -220,8 +234,8 @@
                         endShape(CLOSE);
                         stroke(0);
                         strokeWeight(2);
-                        line(b.x + 10, b.y + 5, b.x + 20, b.y + 5);
-                        line(b.x + 10, b.y + 15, b.x + 20, b.y + 15);
+                        line(b.x + 5, b.y + 5, b.x + 20, b.y + 5);
+                        line(b.x + 5, b.y + 15, b.x + 20, b.y + 15);
                     }
 
                     // Check collision with jar
@@ -249,7 +263,7 @@
                 }
             }
 
-            // Draw honey jar (image or fallback shape)
+            // Draw honey jar (image or fallback)
             if (jarImg && jarImg.width > 0) {
                 image(jarImg, jar.x, jar.y, jar.w, jar.h);
             } else {
@@ -288,34 +302,35 @@
         }
 
         function mousePressed() {
-            if (gameState === 'intro') {
-                if (isMouseOverButton(yesButton)) {
-                    gameState = 'teamSelect';
-                } else if (isMouseOverButton(noButton)) {
-                    background(0);
-                    textSize(40);
-                    fill(255, 0, 0);
-                    textAlign(CENTER);
-                    text('Mission Abandoned', width / 2, height / 2);
-                    gameState = 'abandoned';
-                }
-            } else if (gameState === 'teamSelect') {
+            if (gameState === 'teamSelect') {
                 if (isMouseOverButton(pinkButton)) {
                     team = 'pink';
+                    introMessage = pinkIntroMessage;
+                    gameState = 'intro';
+                    messageOffset = 0;
+                    showButtons = false;
                     console.log('Selected Pink team');
                     beeImg = pinkBeeImg;
                     jarImg = pinkJarImg;
                 } else if (isMouseOverButton(blueButton)) {
                     team = 'blue';
+                    introMessage = blueIntroMessage;
+                    gameState = 'intro';
+                    messageOffset = 0;
+                    showButtons = false;
                     console.log('Selected Blue team');
                     beeImg = blueBeeImg;
                     jarImg = blueJarImg;
-                } else if (team && isMouseOverButton(startButton)) {
+                }
+            } else if (gameState === 'intro' && showButtons) {
+                if (isMouseOverButton(yesButton)) {
                     gameState = 'game';
                     jar = { x: width / 2, y: height / 2, w: 50, h: 50 };
                     spawnDroplet();
                     spawnBee();
                     nextBeeSpawnTime = millis() + 10000;
+                } else if (isMouseOverButton(noButton)) {
+                    gameState = 'chicken';
                 }
             } else if (gameState === 'game' && gameOver) {
                 score = 0;

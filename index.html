@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firefly Catch</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; }
+        canvas { display: block; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+</head>
+<body>
+    <script>
+        let backgroundImg, jarImg, fireflyImg, mothImg;
+        let jar, fireflies = [], moths = [];
+        let score = 0, lives = 3, gameOver = false;
+        let lastFireflySpawn = 0, lastMothSpawn = 0;
+
+        function preload() {
+            backgroundImg = loadImage('/background.png');
+            jarImg = loadImage('/jar.png');
+            fireflyImg = loadImage('/firefly.png');
+            mothImg = loadImage('/moth.png');
+        }
+
+        function setup() {
+            createCanvas(800, 600);
+            jar = { x: width / 2, y: height - 60, w: 50, h: 50 };
+            spawnFirefly();
+        }
+
+        function draw() {
+            image(backgroundImg, 0, 0, width, height);
+
+            // Update jar position
+            jar.x = constrain(mouseX - jar.w / 2, 0, width - jar.w);
+
+            if (!gameOver) {
+                // Spawn fireflies and moths
+                if (millis() - lastFireflySpawn > 2000) {
+                    spawnFirefly();
+                    lastFireflySpawn = millis();
+                }
+                if (millis() - lastMothSpawn > 3000) {
+                    spawnMoth();
+                    lastMothSpawn = millis();
+                }
+
+                // Update and draw fireflies
+                for (let i = fireflies.length - 1; i >= 0; i--) {
+                    let f = fireflies[i];
+                    f.x += f.vx;
+                    f.y += f.vy;
+                    image(fireflyImg, f.x, f.y, 20, 20);
+
+                    // Check collision with jar
+                    if (collides(jar, f)) {
+                        score += 10;
+                        fireflies.splice(i, 1);
+                        continue;
+                    }
+                    // Remove if off-screen
+                    if (f.y > height) fireflies.splice(i, 1);
+                }
+
+                // Update and draw moths
+                for (let i = moths.length - 1; i >= 0; i--) {
+                    let m = moths[i];
+                    m.x += m.vx;
+                    image(mothImg, m.x, m.y, 30, 30);
+
+                    // Check collision with jar
+                    if (collides(jar, m)) {
+                        lives -= 1;
+                        moths.splice(i, 1);
+                        if (lives <= 0) gameOver = true;
+                        continue;
+                    }
+                    // Remove if off-screen
+                    if (m.x > width || m.x < -30) moths.splice(i, 1);
+                }
+            }
+
+            // Draw jar
+            image(jarImg, jar.x, jar.y, jar.w, jar.h);
+
+            // Draw HUD
+            textSize(20);
+            fill(255);
+            textAlign(LEFT);
+            text(`Score: ${score}`, 10, 30);
+            text(`Lives: ${lives}`, 10, 60);
+
+            // Game over screen
+            if (gameOver) {
+                textSize(40);
+                textAlign(CENTER);
+                fill(255, 0, 0);
+                text('Game Over!', width / 2, height / 2);
+                textSize(20);
+                text('Click to Restart', width / 2, height / 2 + 40);
+            }
+        }
+
+        function spawnFirefly() {
+            let x = random(0, width);
+            let vx = random(-1, 1);
+            let vy = random(0.5, 2);
+            fireflies.push({ x, y: 0, vx, vy, w: 20, h: 20 });
+        }
+
+        function spawnMoth() {
+            let side = random() > 0.5 ? -30 : width;
+            let vx = side < 0 ? random(2, 4) : random(-4, -2);
+            let y = random(50, height - 100);
+            moths.push({ x: side, y, vx, w: 30, h: 30 });
+        }
+
+        function collides(a, b) {
+            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+        }
+
+        function mousePressed() {
+            if (gameOver) {
+                score = 0;
+                lives = 3;
+                gameOver = false;
+                fireflies = [];
+                moths = [];
+                spawnFirefly();
+                lastFireflySpawn = millis();
+                lastMothSpawn = millis();
+            }
+        }
+    </script>
+</body>
+</html>

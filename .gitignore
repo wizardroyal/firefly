@@ -1,0 +1,12 @@
+# secrets and runtime state: never commit (CLAUDE.md invariant 4)
+config.toml
+/*.toml
+!/config.example.toml
+.env
+state/
+logs/
+*.jsonl
+
+__pycache__/
+.pytest_cache/
+.venv/

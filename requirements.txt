@@ -1,0 +1,4 @@
+aiohttp>=3.9
+websockets>=12
+hyperliquid-python-sdk==0.24.0   # signing only (sign_l1_action); pins eth-account, msgpack
+pytest>=8

@@ -1,0 +1,17 @@
+[Unit]
+Description=entropymm market maker (Entropy io on Hyperliquid)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/entropymm
+EnvironmentFile=/etc/entropymm.env
+ExecStart=/opt/entropymm/.venv/bin/python -m entropymm run -c /opt/entropymm/config.toml
+Restart=on-failure
+RestartSec=30
+# SIGTERM -> the bot cancels all orders before exiting
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

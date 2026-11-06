@@ -1,0 +1,67 @@
+# Copy to config.toml (never committed). Secrets come ONLY from the environment:
+#   export ENTROPY_AGENT_KEY=0x...        # API/agent wallet private key (trade-only, cannot withdraw)
+#   export ENTROPY_TELEGRAM_TOKEN=...     # optional alerts
+#   export ENTROPY_TELEGRAM_CHAT_ID=...
+
+[bot]
+network = "mainnet"
+account_address = "0xYourBotSubaccount"   # dedicated subaccount: nobody else trades it
+is_subaccount = true                       # sign with vaultAddress = account_address
+dry_run = true                             # true = paper on the live feed, sends NO orders
+dead_mans_switch = true                    # scheduleCancel ~45 s after the bot dies
+ipv4_only = false
+state_dir = "state"
+log_dir = "logs"
+# Transitions where io can gap: no quotes inside, flatten-only flatten_lead_min before.
+# Times ET; "sun ..." = Sundays, the rest = US trading days. Tune from Phase 0 recordings.
+blackouts = ["03:55-04:05", "09:25-09:40", "15:55-16:05", "19:55-20:05", "sun 19:50-20:10"]
+flatten_lead_min = 10.0
+summary_hour_wat = 8                       # daily Telegram summary, WAT (UTC+1)
+
+[risk]
+weekly_loss_limit_usd = 2.0     # owner's budget. Phase 2 (first 48 h live): 1.0
+daily_loss_limit_usd = 0.75
+caution_frac = 1.0              # off: a $12-clip book has nothing smaller to shrink to
+flatten_only_frac = 0.8
+toxic_markout_bps = 1.0         # 30 s markout vs fair worse than -1 bp -> back off (decays)
+kill_markout_bps = 3.0          # 50-fill mean worse than -3 bp -> halt 2 h
+toxic_halflife_s = 600.0
+stale_book_s = 5.0
+max_taker_flatten_usd = 40.0    # >= max_inventory_usd + one clip
+max_flatten_slippage_bps = 100.0
+max_maker_fee_bps = 1.0         # KILL: growth mode ended (0.3 bp -> 3 bp)
+margin_alert_frac = 0.5
+margin_flatten_frac = 0.8
+liq_alert_pct = 15.0
+min_rate_surplus = 300
+
+[market_defaults]
+clip_usd = 12.0                 # $10 exchange minimum + headroom
+max_inventory_usd = 24.0        # 2 clips; a 1.5% move on $36 already trips a $0.50 day
+soft_inventory_frac = 0.5
+skew_ticks = 2.0
+toxic_backoff_ticks = 2.0
+leverage = 3                    # isolated (io is isolated-only)
+requote_ticks = 1
+min_requote_ms = 750
+premium_halflife_s = 120.0      # fair = xyz_mid * EWMA(io_mid / xyz_mid)
+premium_warmup_s = 60.0
+guard_bps = 1.5                 # TUNE PER SESSION with tools/hl_join.py
+guard_backoff_ticks = 2
+guard_pull_bps = 6.0
+ref_stale_s = 3.0               # xyz older than this -> pull both sides
+vol_guard_mult = 3.0            # fast sigma >= 3x typical -> reducing side only
+funding_lean_apr = 0.0          # e.g. 0.3: back off the paying side when |funding| > 30%/yr
+funding_lean_ticks = 1
+weekly_loss_limit_usd = 0.0     # per-market cap inside the account budget (0 = off)
+max_actions_per_min = 20       # ~1200 req/h max; allowance is 10k + 1 per $ traded
+quote_regimes = []              # [] = every session; e.g. ["overnight", "weekend"] after Phase 0
+
+[markets."io:SNDK"]
+enabled = true
+ref_symbol = "xyz:SNDK"
+
+[markets."io:NBIS"]             # only after a clean live week on SNDK
+enabled = false
+ref_symbol = "xyz:NBIS"
+weekly_loss_limit_usd = 1.0
